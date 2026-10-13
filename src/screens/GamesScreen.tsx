@@ -362,170 +362,211 @@ export const GamesScreen: React.FC = () => {
     <LinearGradient colors={['#FCE8EC', '#FFF7F8']} style={styles.gradientContainer}>
       <SafeAreaView style={styles.safeArea}>
         {/* Top Header */}
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.screenTitle}>Games & Play Zone</Text>
-            <Text style={styles.subtitle}>
-              {viewMode === 'hub'
-                ? 'Select a game category to play together'
-                : viewMode === 'mini_games'
-                ? 'Sweet & playful couple games'
-                : 'Intimate & spicy couple challenges'}
-            </Text>
+        {viewMode === 'hub' ? (
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.screenTitle}>Games & Play Zone</Text>
+              <Text style={styles.subtitle}>Fun couple mini-games & shared goals</Text>
+            </View>
+            <View style={styles.headerHeart}>
+              <Ionicons name="game-controller" size={20} color={AppColors.primary} />
+            </View>
           </View>
-          <View style={styles.headerHeart}>
-            <Ionicons
-              name={viewMode === 'spicy_games' ? 'flame' : 'game-controller'}
-              size={20}
-              color={AppColors.primary}
-            />
+        ) : (
+          <View style={styles.headerWithBack}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => {
+                try {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                } catch {}
+                setViewMode('hub');
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back" size={22} color={AppColors.textPrimary} />
+            </TouchableOpacity>
+
+            <View style={styles.headerTitleGroup}>
+              <Text style={styles.screenTitle}>
+                {viewMode === 'mini_games' ? 'Mini Games 🎮' : 'Spicy Games 🔥'}
+              </Text>
+              <Text style={styles.subtitle}>
+                {viewMode === 'mini_games'
+                  ? 'Choose a game to play live with your partner'
+                  : '4 intimate & romantic couple games'}
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.countBadge,
+                viewMode === 'spicy_games' && { backgroundColor: '#FFE8EC' },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.countBadgeText,
+                  viewMode === 'spicy_games' && { color: AppColors.primary },
+                ]}
+              >
+                {viewMode === 'mini_games' ? '2 Games' : '4 Games'}
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           {/* ======================================================== */}
           {/* VIEW MODE 1: GAME HUB (TWO ENCIRCLED CATEGORY BOXES)     */}
           {/* ======================================================== */}
           {viewMode === 'hub' && (
-            <View style={styles.hubContainer}>
-              {/* ENCIRCLED BOX 1: MINI GAMES */}
-              <TouchableOpacity
-                style={styles.encircledCategoryBox}
-                onPress={() => {
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  } catch {}
-                  setViewMode('mini_games');
-                }}
-                activeOpacity={0.88}
-              >
-                <LinearGradient
-                  colors={['#FFFFFF', '#F6F1FF']}
-                  style={styles.categoryCardGradient}
+            <>
+              <View style={styles.hubContainer}>
+                {/* ENCIRCLED BOX 1: MINI GAMES */}
+                <TouchableOpacity
+                  style={styles.encircledCategoryBox}
+                  onPress={() => {
+                    try {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    } catch {}
+                    setViewMode('mini_games');
+                  }}
+                  activeOpacity={0.88}
                 >
-                  <View style={styles.categoryCardTopRow}>
-                    <View style={[styles.categoryIconCircle, { backgroundColor: '#F0E8FF' }]}>
-                      <Text style={styles.categoryEmoji}>🎮</Text>
+                  <LinearGradient
+                    colors={['#FFFFFF', '#F6F1FF']}
+                    style={styles.categoryCardGradient}
+                  >
+                    <View style={styles.categoryCardTopRow}>
+                      <View style={[styles.categoryIconCircle, { backgroundColor: '#F0E8FF' }]}>
+                        <Text style={styles.categoryEmoji}>🎮</Text>
+                      </View>
+                      <View style={styles.categoryBadgePill}>
+                        <Text style={styles.categoryBadgeText}>2 Games Inside</Text>
+                      </View>
                     </View>
-                    <View style={styles.categoryBadgePill}>
-                      <Text style={styles.categoryBadgeText}>2 Games Inside</Text>
-                    </View>
-                  </View>
 
-                  <Text style={styles.categoryCardTitle}>Mini Games</Text>
-                  <Text style={styles.categoryCardSubtitle}>
-                    Fun, casual & competitive games for partners to play together
-                  </Text>
-
-                  {/* Preview Chips */}
-                  <View style={styles.categoryChipsRow}>
-                    <View style={styles.categoryChip}>
-                      <Text style={styles.chipText}>❤️ Tic-Tac-Toe</Text>
-                    </View>
-                    <View style={styles.categoryChip}>
-                      <Text style={styles.chipText}>🃏 Truth or Dare</Text>
-                    </View>
-                    <View style={styles.categoryChip}>
-                      <Text style={styles.chipText}>💌 Couple Quiz</Text>
-                    </View>
-                  </View>
-
-                  {/* Redirect Action Footer */}
-                  <View style={styles.categoryFooter}>
-                    <Text style={styles.categoryFooterText}>Open Mini Games</Text>
-                    <View style={styles.arrowCircle}>
-                      <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
-                    </View>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-
-              {/* ENCIRCLED BOX 2: SPICY GAMES */}
-              <TouchableOpacity
-                style={[styles.encircledCategoryBox, styles.spicyBoxGlow]}
-                onPress={() => {
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  } catch {}
-                  setViewMode('spicy_games');
-                }}
-                activeOpacity={0.88}
-              >
-                <LinearGradient
-                  colors={['#FFFFFF', '#FFF0F3']}
-                  style={styles.categoryCardGradient}
-                >
-                  <View style={styles.categoryCardTopRow}>
-                    <View style={[styles.categoryIconCircle, { backgroundColor: '#FFE8EC' }]}>
-                      <Text style={styles.categoryEmoji}>🔥</Text>
-                    </View>
-                    <View style={[styles.categoryBadgePill, styles.spicyBadgePill]}>
-                      <Text style={styles.spicyBadgeText}>Hot & Intimate • 4 Games</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.categoryCardTitle}>Spicy Games</Text>
-                  <Text style={styles.categoryCardSubtitle}>
-                    Seductive, daring & romantic games to spark deep connection and thrill
-                  </Text>
-
-                  {/* Preview Chips */}
-                  <View style={styles.categoryChipsRow}>
-                    <View style={styles.spicyChip}>
-                      <Text style={styles.spicyChipText}>🎡 Spicy Wheel</Text>
-                    </View>
-                    <View style={styles.spicyChip}>
-                      <Text style={styles.spicyChipText}>🎲 Fantasy Dice</Text>
-                    </View>
-                    <View style={styles.spicyChip}>
-                      <Text style={styles.spicyChipText}>🙈 Never Have I</Text>
-                    </View>
-                    <View style={styles.spicyChip}>
-                      <Text style={styles.spicyChipText}>💋 Sensory Touch</Text>
-                    </View>
-                  </View>
-
-                  {/* Redirect Action Footer */}
-                  <View style={styles.categoryFooter}>
-                    <Text style={[styles.categoryFooterText, { color: AppColors.primary }]}>
-                      Explore Spicy Games
+                    <Text style={styles.categoryCardTitle}>Mini Games</Text>
+                    <Text style={styles.categoryCardSubtitle}>
+                      Fun, casual & competitive games for partners to play together
                     </Text>
-                    <View style={[styles.arrowCircle, { backgroundColor: AppColors.primary }]}>
-                      <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+
+                    {/* Preview Chips */}
+                    <View style={styles.categoryChipsRow}>
+                      <View style={styles.categoryChip}>
+                        <Text style={styles.chipText}>❤️ Tic-Tac-Toe</Text>
+                      </View>
+                      <View style={styles.categoryChip}>
+                        <Text style={styles.chipText}>🃏 Truth or Dare</Text>
+                      </View>
+                      <View style={styles.categoryChip}>
+                        <Text style={styles.chipText}>💌 Couple Quiz</Text>
+                      </View>
                     </View>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
+
+                    {/* Redirect Action Footer */}
+                    <View style={styles.categoryFooter}>
+                      <Text style={styles.categoryFooterText}>Open Mini Games</Text>
+                      <View style={styles.arrowCircle}>
+                        <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                      </View>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                {/* ENCIRCLED BOX 2: SPICY GAMES */}
+                <TouchableOpacity
+                  style={[styles.encircledCategoryBox, styles.spicyBoxGlow]}
+                  onPress={() => {
+                    try {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    } catch {}
+                    setViewMode('spicy_games');
+                  }}
+                  activeOpacity={0.88}
+                >
+                  <LinearGradient
+                    colors={['#FFFFFF', '#FFF0F3']}
+                    style={styles.categoryCardGradient}
+                  >
+                    <View style={styles.categoryCardTopRow}>
+                      <View style={[styles.categoryIconCircle, { backgroundColor: '#FFE8EC' }]}>
+                        <Text style={styles.categoryEmoji}>🔥</Text>
+                      </View>
+                      <View style={[styles.categoryBadgePill, styles.spicyBadgePill]}>
+                        <Text style={styles.spicyBadgeText}>Hot & Intimate • 4 Games</Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.categoryCardTitle}>Spicy Games</Text>
+                    <Text style={styles.categoryCardSubtitle}>
+                      Seductive, daring & romantic games to spark deep connection and thrill
+                    </Text>
+
+                    {/* Preview Chips */}
+                    <View style={styles.categoryChipsRow}>
+                      <View style={styles.spicyChip}>
+                        <Text style={styles.spicyChipText}>🎡 Spicy Wheel</Text>
+                      </View>
+                      <View style={styles.spicyChip}>
+                        <Text style={styles.spicyChipText}>🎲 Fantasy Dice</Text>
+                      </View>
+                      <View style={styles.spicyChip}>
+                        <Text style={styles.spicyChipText}>🙈 Never Have I</Text>
+                      </View>
+                      <View style={styles.spicyChip}>
+                        <Text style={styles.spicyChipText}>💋 Sensory Touch</Text>
+                      </View>
+                    </View>
+
+                    {/* Redirect Action Footer */}
+                    <View style={styles.categoryFooter}>
+                      <Text style={[styles.categoryFooterText, { color: AppColors.primary }]}>
+                        Explore Spicy Games
+                      </Text>
+                      <View style={[styles.arrowCircle, { backgroundColor: AppColors.primary }]}>
+                        <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                      </View>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+
+              {/* Couple Goals & Bucket List (ONLY SHOWN IN MAIN HUB VIEW!) */}
+              <View style={styles.goalsHeaderRow}>
+                <View>
+                  <Text style={styles.goalsTitle}>Couple Goals & Bucket List</Text>
+                  <Text style={styles.goalsSubtitle}>Things we want to do together</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.addGoalBtn}
+                  onPress={() => setIsNewGoalModal(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="add" size={16} color="#FFFFFF" />
+                  <Text style={styles.addGoalBtnText}>Add Goal</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Goals List */}
+              {goals.map((g) => (
+                <GoalCard
+                  key={g.id}
+                  goal={g}
+                  onToggle={handleToggleGoal}
+                  onIncrement={handleIncrementGoal}
+                />
+              ))}
+            </>
           )}
 
           {/* ======================================================== */}
-          {/* VIEW MODE 2: MINI GAMES REDIRECTED SECTION               */}
+          {/* VIEW MODE 2: MINI GAMES REDIRECTED DEDICATED LAYOUT       */}
           {/* ======================================================== */}
           {viewMode === 'mini_games' && (
             <View style={styles.subSectionContainer}>
-              <TouchableOpacity
-                style={styles.backToHubBtn}
-                onPress={() => setViewMode('hub')}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="arrow-back" size={16} color={AppColors.primary} />
-                <Text style={styles.backToHubText}>Back to Game Hub</Text>
-              </TouchableOpacity>
-
-              <View style={styles.subSectionHeaderRow}>
-                <View>
-                  <Text style={styles.subSectionTitle}>Mini Games 🎮</Text>
-                  <Text style={styles.subSectionSubtitle}>
-                    Choose a game to play live with your partner
-                  </Text>
-                </View>
-                <View style={styles.countBadge}>
-                  <Text style={styles.countBadgeText}>2 Games</Text>
-                </View>
-              </View>
-
-              {/* 2 Games Grid (Tic-Tac-Toe and Truth or Dare) */}
+              {/* 2 Main Games Grid (Tic-Tac-Toe and Truth or Dare) */}
               <View style={styles.gridRow}>
                 <GameTile
                   title="Live Tic-Tac-Toe"
@@ -560,33 +601,10 @@ export const GamesScreen: React.FC = () => {
           )}
 
           {/* ======================================================== */}
-          {/* VIEW MODE 3: SPICY GAMES REDIRECTED SECTION              */}
+          {/* VIEW MODE 3: SPICY GAMES REDIRECTED DEDICATED LAYOUT      */}
           {/* ======================================================== */}
           {viewMode === 'spicy_games' && (
             <View style={styles.subSectionContainer}>
-              <TouchableOpacity
-                style={styles.backToHubBtn}
-                onPress={() => setViewMode('hub')}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="arrow-back" size={16} color={AppColors.primary} />
-                <Text style={styles.backToHubText}>Back to Game Hub</Text>
-              </TouchableOpacity>
-
-              <View style={styles.subSectionHeaderRow}>
-                <View>
-                  <Text style={styles.subSectionTitle}>Spicy Games 🔥</Text>
-                  <Text style={styles.subSectionSubtitle}>
-                    4 intimate & romantic couple games
-                  </Text>
-                </View>
-                <View style={[styles.countBadge, { backgroundColor: '#FFE8EC' }]}>
-                  <Text style={[styles.countBadgeText, { color: AppColors.primary }]}>
-                    4 Games
-                  </Text>
-                </View>
-              </View>
-
               {/* 4 Spicy Games Grid */}
               <View style={styles.gridRow}>
                 <GameTile
@@ -627,34 +645,6 @@ export const GamesScreen: React.FC = () => {
               </View>
             </View>
           )}
-
-          {/* ======================================================== */}
-          {/* COUPLE GOALS & BUCKET LIST CHECKLIST (ON MAIN SCREEN)    */}
-          {/* ======================================================== */}
-          <View style={styles.goalsHeaderRow}>
-            <View>
-              <Text style={styles.goalsTitle}>Couple Goals & Bucket List</Text>
-              <Text style={styles.goalsSubtitle}>Things we want to do together</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.addGoalBtn}
-              onPress={() => setIsNewGoalModal(true)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={16} color="#FFFFFF" />
-              <Text style={styles.addGoalBtnText}>Add Goal</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Goals List */}
-          {goals.map((g) => (
-            <GoalCard
-              key={g.id}
-              goal={g}
-              onToggle={handleToggleGoal}
-              onIncrement={handleIncrementGoal}
-            />
-          ))}
 
           {/* Generous bottom spacing so nothing gets cut off by floating bar */}
           <View style={{ height: 150 }} />
@@ -1119,6 +1109,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 6,
     elevation: 3,
+  },
+  headerWithBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#E297A5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+    marginRight: 12,
+  },
+  headerTitleGroup: {
+    flex: 1,
   },
   scrollContent: {
     paddingBottom: 24,
