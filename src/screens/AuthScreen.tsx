@@ -21,6 +21,7 @@ import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
 import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import LiquidEther from '../components/LiquidEther';
+import FloatingAuroraCharacter from '../components/FloatingAuroraCharacter';
 import AuthService, { UserAccount } from '../services/AuthService';
 import FirestoreService from '../services/FirestoreService';
 
@@ -225,9 +226,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onSkip })
         >
           {/* Header Branding */}
           <View style={styles.brandHeader}>
-            <View style={styles.logoBadgeCircle}>
-              <Ionicons name="heart" size={28} color="#FF6575" />
-            </View>
+            <FloatingAuroraCharacter size={118} style={styles.characterContainer} />
             <Text style={styles.brandTitle}>COUPLESIFY</Text>
             <Text style={styles.brandSubtitle}>
               {authMode === 'login'
@@ -653,28 +652,16 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: Platform.OS === 'web' ? 24 : 14,
     paddingBottom: 40,
   },
   brandHeader: {
     alignItems: 'center',
     marginBottom: 20,
+    paddingTop: 4,
   },
-  logoBadgeCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FFE8EC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    shadowColor: '#FF6575',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 4,
+  characterContainer: {
+    marginBottom: 12,
   },
   brandTitle: {
     fontFamily: AppFonts.title,
@@ -693,6 +680,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 16,
     padding: 4,
+    marginTop: 8,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.95)',
