@@ -5,7 +5,7 @@ export interface CoupleProfile {
   partnerName: string;
   userAvatar: string;
   partnerAvatar: string;
-  anniversaryDate: string; // ISO string '2023-10-14'
+  anniversaryDate: string; // ISO string '2026-10-13'
   inviteCode: string; // e.g. 'LOVE-77'
   isPaired: boolean;
   partnerOnline: boolean;
@@ -37,8 +37,8 @@ export interface CoupleGoal {
   title: string;
   category: string;
   completed: boolean;
-  progress: number; // e.g. 3
-  total: number; // e.g. 4
+  progress: number;
+  total: number;
   color: string;
 }
 
@@ -50,6 +50,13 @@ export interface MemoryItem {
   tag: string;
   likes: number;
   isLiked: boolean;
+}
+
+export interface LetterItem {
+  id: string;
+  senderName: string;
+  body: string;
+  date: string;
 }
 
 export interface ChatMessage {
@@ -64,110 +71,59 @@ export interface ChatMessage {
 }
 
 const STORAGE_KEYS = {
+  CLEAN_V3: '@couplesify_clean_v3',
   PROFILE: '@couplesify_profile',
   USER_MOOD: '@couplesify_user_mood',
   PARTNER_MOOD: '@couplesify_partner_mood',
   SHARED_DOODLE: '@couplesify_shared_doodle',
   GOALS: '@couplesify_goals',
   MEMORIES: '@couplesify_memories',
+  LETTERS: '@couplesify_letters',
   MESSAGES: '@couplesify_messages',
 };
 
-// Initial default couple profile
+// Clean initial empty defaults with NO fake / dummy records
 const DEFAULT_PROFILE: CoupleProfile = {
-  userName: 'Alex',
-  partnerName: 'Maya',
-  userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
-  partnerAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
-  anniversaryDate: '2024-02-14',
+  userName: 'You',
+  partnerName: 'Partner',
+  userAvatar: '',
+  partnerAvatar: '',
+  anniversaryDate: new Date().toISOString().split('T')[0],
   inviteCode: 'LOVE-77',
-  isPaired: true,
-  partnerOnline: true,
+  isPaired: false,
+  partnerOnline: false,
 };
 
-const DEFAULT_GOALS: CoupleGoal[] = [
-  { id: '1', title: 'Weekly Date Ideas', category: 'Romantic', completed: false, progress: 3, total: 4, color: '#FF6575' },
-  { id: '2', title: 'Visit a New Café Together', category: 'Weekend', completed: true, progress: 1, total: 1, color: '#3DAA7A' },
-  { id: '3', title: 'Sunset Stargazing Picnic', category: 'Adventure', completed: false, progress: 0, total: 1, color: '#8F78D2' },
-  { id: '4', title: 'Cook Homemade Pasta', category: 'Home', completed: true, progress: 2, total: 2, color: '#E59740' },
-  { id: '5', title: 'Plan Kyoto Cherry Blossom Trip', category: 'Dream Travel', completed: false, progress: 1, total: 3, color: '#4592D9' },
-];
-
-const DEFAULT_MEMORIES: MemoryItem[] = [
-  {
-    id: 'm1',
-    imageUri: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=800&auto=format&fit=crop&q=80',
-    caption: 'Sunset walk by the pier holding warm matcha lattes. Time stops with you. ✨',
-    date: 'Oct 10, 2026',
-    tag: 'Date Night',
-    likes: 24,
-    isLiked: true,
-  },
-  {
-    id: 'm2',
-    imageUri: 'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?w=800&auto=format&fit=crop&q=80',
-    caption: 'Our first camping trip under the pine trees. Burned marshmallows and endless giggles.',
-    date: 'Aug 24, 2026',
-    tag: 'Adventure',
-    likes: 19,
-    isLiked: false,
-  },
-  {
-    id: 'm3',
-    imageUri: 'https://images.unsplash.com/photo-1494774157365-9e04c6720e47?w=800&auto=format&fit=crop&q=80',
-    caption: 'Surprise anniversary picnic in the park! The strawberries were as sweet as your smile.',
-    date: 'Feb 14, 2026',
-    tag: 'Anniversary',
-    likes: 38,
-    isLiked: true,
-  },
-];
-
-const DEFAULT_MESSAGES: ChatMessage[] = [
-  {
-    id: 'msg-1',
-    sender: 'partner',
-    type: 'text',
-    text: 'Good morning my sunshine! ☀️ Did you sleep well?',
-    timestamp: Date.now() - 3600000 * 2,
-    status: 'read',
-  },
-  {
-    id: 'msg-2',
-    sender: 'user',
-    type: 'text',
-    text: 'Morning sweetheart! Dreamt about our upcoming weekend getaway 🏖️',
-    timestamp: Date.now() - 3600000 * 1.8,
-    status: 'read',
-  },
-  {
-    id: 'msg-3',
-    sender: 'partner',
-    type: 'voice',
-    voiceSeconds: 8,
-    timestamp: Date.now() - 3600000 * 1.2,
-    status: 'read',
-  },
-  {
-    id: 'msg-4',
-    sender: 'partner',
-    type: 'nudge',
-    text: 'Maya sent you a warm squeeze! 💕',
-    timestamp: Date.now() - 3600000 * 0.8,
-    status: 'read',
-  },
-  {
-    id: 'msg-5',
-    sender: 'user',
-    type: 'text',
-    text: 'Just drew something cute for your phone widget! Check it out! 🥰',
-    timestamp: Date.now() - 120000,
-    status: 'delivered',
-  },
-];
+const DEFAULT_GOALS: CoupleGoal[] = [];
+const DEFAULT_MEMORIES: MemoryItem[] = [];
+const DEFAULT_LETTERS: LetterItem[] = [];
+const DEFAULT_MESSAGES: ChatMessage[] = [];
 
 export const StorageService = {
+  async ensureCleanState(): Promise<void> {
+    try {
+      const isCleaned = await AsyncStorage.getItem(STORAGE_KEYS.CLEAN_V3);
+      if (!isCleaned) {
+        // Clear all previous dummy/mock data keys
+        await AsyncStorage.multiRemove([
+          STORAGE_KEYS.PROFILE,
+          STORAGE_KEYS.USER_MOOD,
+          STORAGE_KEYS.PARTNER_MOOD,
+          STORAGE_KEYS.SHARED_DOODLE,
+          STORAGE_KEYS.GOALS,
+          STORAGE_KEYS.MEMORIES,
+          STORAGE_KEYS.LETTERS,
+          STORAGE_KEYS.MESSAGES,
+        ]);
+        await AsyncStorage.setItem(STORAGE_KEYS.CLEAN_V3, 'true');
+      }
+    } catch {
+      // safe fallback
+    }
+  },
+
   async getProfile(): Promise<CoupleProfile> {
+    await this.ensureCleanState();
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.PROFILE);
       return data ? JSON.parse(data) : DEFAULT_PROFILE;
@@ -181,6 +137,7 @@ export const StorageService = {
   },
 
   async getUserMood(): Promise<string> {
+    await this.ensureCleanState();
     return (await AsyncStorage.getItem(STORAGE_KEYS.USER_MOOD)) || 'Loving 🥰';
   },
 
@@ -189,7 +146,8 @@ export const StorageService = {
   },
 
   async getPartnerMood(): Promise<string> {
-    return (await AsyncStorage.getItem(STORAGE_KEYS.PARTNER_MOOD)) || 'Needy 🥺';
+    await this.ensureCleanState();
+    return (await AsyncStorage.getItem(STORAGE_KEYS.PARTNER_MOOD)) || 'Waiting for partner... 💭';
   },
 
   async setPartnerMood(mood: string): Promise<void> {
@@ -197,6 +155,7 @@ export const StorageService = {
   },
 
   async getSharedDoodle(): Promise<SharedDoodle | null> {
+    await this.ensureCleanState();
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.SHARED_DOODLE);
       return data ? JSON.parse(data) : null;
@@ -210,6 +169,7 @@ export const StorageService = {
   },
 
   async getGoals(): Promise<CoupleGoal[]> {
+    await this.ensureCleanState();
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.GOALS);
       return data ? JSON.parse(data) : DEFAULT_GOALS;
@@ -223,6 +183,7 @@ export const StorageService = {
   },
 
   async getMemories(): Promise<MemoryItem[]> {
+    await this.ensureCleanState();
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.MEMORIES);
       return data ? JSON.parse(data) : DEFAULT_MEMORIES;
@@ -235,7 +196,22 @@ export const StorageService = {
     await AsyncStorage.setItem(STORAGE_KEYS.MEMORIES, JSON.stringify(memories));
   },
 
+  async getLetters(): Promise<LetterItem[]> {
+    await this.ensureCleanState();
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.LETTERS);
+      return data ? JSON.parse(data) : DEFAULT_LETTERS;
+    } catch {
+      return DEFAULT_LETTERS;
+    }
+  },
+
+  async saveLetters(letters: LetterItem[]): Promise<void> {
+    await AsyncStorage.setItem(STORAGE_KEYS.LETTERS, JSON.stringify(letters));
+  },
+
   async getMessages(): Promise<ChatMessage[]> {
+    await this.ensureCleanState();
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.MESSAGES);
       return data ? JSON.parse(data) : DEFAULT_MESSAGES;

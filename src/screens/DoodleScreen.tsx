@@ -21,7 +21,7 @@ interface DoodleScreenProps {
 
 export const DoodleScreen: React.FC<DoodleScreenProps> = ({ onBack }) => {
   const [activeDoodle, setActiveDoodle] = useState<SharedDoodle | null>(null);
-  const [partnerName, setPartnerName] = useState<string>('Maya');
+  const [partnerName, setPartnerName] = useState<string>('Partner');
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   useEffect(() => {

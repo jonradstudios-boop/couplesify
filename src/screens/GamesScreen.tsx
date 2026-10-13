@@ -65,14 +65,17 @@ export const GamesScreen: React.FC = () => {
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalCategory, setNewGoalCategory] = useState('Romantic');
   const [newGoalTotal, setNewGoalTotal] = useState('3');
+  const [partnerName, setPartnerName] = useState('Partner');
 
-  const loadGoals = async () => {
+  const loadData = async () => {
+    const prof = await StorageService.getProfile();
+    if (prof?.partnerName) setPartnerName(prof.partnerName);
     const data = await StorageService.getGoals();
     setGoals(data);
   };
 
   useEffect(() => {
-    loadGoals();
+    loadData();
   }, []);
 
   const handleToggleGoal = async (id: string) => {
@@ -195,7 +198,7 @@ export const GamesScreen: React.FC = () => {
   const QUIZ_QUESTIONS = [
     {
       q: 'Who takes longer to get dressed before a date?',
-      options: ['Definitely Me 👗', 'Maya / Partner 👔', 'Both equally slow ⏳'],
+      options: ['Definitely Me 👗', 'My Partner 👔', 'Both equally slow ⏳'],
       partnerAnswer: 1,
     },
     {
@@ -549,15 +552,35 @@ export const GamesScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              {/* Goals List */}
-              {goals.map((g) => (
-                <GoalCard
-                  key={g.id}
-                  goal={g}
-                  onToggle={handleToggleGoal}
-                  onIncrement={handleIncrementGoal}
-                />
-              ))}
+              {/* Goals List / Clean Real Record Empty State */}
+              {goals.length === 0 ? (
+                <View style={styles.emptyGoalsCard}>
+                  <View style={styles.emptyGoalsIconCircle}>
+                    <Ionicons name="sparkles" size={24} color={AppColors.primary} />
+                  </View>
+                  <Text style={styles.emptyGoalsTitle}>No Goals Added Yet</Text>
+                  <Text style={styles.emptyGoalsSubtitle}>
+                    Create your first couple bucket list item together!
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.emptyGoalsBtn}
+                    onPress={() => setIsNewGoalModal(true)}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="add" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    <Text style={styles.emptyGoalsBtnText}>Create Couple Goal</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                goals.map((g) => (
+                  <GoalCard
+                    key={g.id}
+                    goal={g}
+                    onToggle={handleToggleGoal}
+                    onIncrement={handleIncrementGoal}
+                  />
+                ))
+              )}
             </>
           )}
 
@@ -688,7 +711,7 @@ export const GamesScreen: React.FC = () => {
                       </Text>
                       {revealedQuiz && isPartnerChoice && (
                         <View style={styles.partnerMatchBadge}>
-                          <Text style={styles.partnerMatchBadgeText}>Maya's Pick ✨</Text>
+                          <Text style={styles.partnerMatchBadgeText}>{partnerName}'s Pick ✨</Text>
                         </View>
                       )}
                     </TouchableOpacity>
@@ -953,7 +976,7 @@ export const GamesScreen: React.FC = () => {
                 <TouchableOpacity
                   style={[styles.nhieChoiceBtn, { backgroundColor: '#FFE8EC' }]}
                   onPress={() => {
-                    setNhieReaction('You said: I Have! 🙈 Maya owes you a sweet confession!');
+                    setNhieReaction(`You said: I Have! 🙈 ${partnerName} owes you a sweet confession!`);
                     try {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     } catch {}
@@ -1790,6 +1813,58 @@ const styles = StyleSheet.create({
     color: AppColors.textPrimary,
     borderWidth: 1,
     borderColor: '#F0D4DC',
+  },
+  emptyGoalsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 24,
+    marginHorizontal: 16,
+    marginVertical: 10,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFE8EC',
+    borderStyle: 'dashed',
+    shadowColor: '#E297A5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  emptyGoalsIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FFE8EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  emptyGoalsTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: AppColors.textPrimary,
+    marginBottom: 4,
+  },
+  emptyGoalsSubtitle: {
+    fontSize: 12.5,
+    color: AppColors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  emptyGoalsBtn: {
+    backgroundColor: AppColors.primary,
+    borderRadius: 9999,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyGoalsBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });
 

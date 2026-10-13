@@ -21,7 +21,6 @@ import StorageService, {
   SharedDoodle,
 } from '../services/StorageService';
 import RealtimeService from '../services/RealtimeService';
-import WidgetSyncService from '../services/WidgetSyncService';
 import Svg, { Path } from 'react-native-svg';
 
 interface HomeScreenProps {
@@ -37,7 +36,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const [profile, setProfile] = useState<CoupleProfile | null>(null);
   const [userMood, setUserMood] = useState<string>('Loving 🥰');
-  const [partnerMood, setPartnerMood] = useState<string>('Needy 🥺');
+  const [partnerMood, setPartnerMood] = useState<string>('Waiting for partner... 💭');
   const [todayMemory, setTodayMemory] = useState<MemoryItem | null>(null);
   const [sharedDoodle, setSharedDoodle] = useState<SharedDoodle | null>(null);
 
@@ -68,12 +67,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     const uMood = await StorageService.getUserMood();
     const pMood = await StorageService.getPartnerMood();
     const memories = await StorageService.getMemories();
-    let doodle = await StorageService.getSharedDoodle();
-
-    if (!doodle) {
-      doodle = WidgetSyncService.getDefaultHeartDoodle();
-      await StorageService.saveSharedDoodle(doodle);
-    }
+    const doodle = await StorageService.getSharedDoodle();
 
     setProfile(prof);
     setUserMood(uMood);
@@ -81,6 +75,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     setSharedDoodle(doodle);
     if (memories.length > 0) {
       setTodayMemory(memories[0]);
+    } else {
+      setTodayMemory(null);
     }
   };
 
@@ -116,12 +112,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
           <View style={styles.headerRight}>
             {/* Partner Sync Status Chip */}
-            <View style={styles.syncStatusChip}>
-              <View style={styles.onlineDot} />
+            <TouchableOpacity
+              style={styles.syncStatusChip}
+              onPress={onOpenSettings}
+              activeOpacity={0.8}
+            >
+              <View
+                style={[
+                  styles.onlineDot,
+                  !profile?.isPaired && { backgroundColor: AppColors.offlineGray },
+                ]}
+              />
               <Text style={styles.syncStatusText}>
-                {profile?.partnerName || 'Maya'} (Online)
+                {profile?.isPaired ? `${profile.partnerName} (Paired)` : 'Pair Partner'}
               </Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Settings Gear */}
             <TouchableOpacity
@@ -169,18 +174,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
 
           {/* Shared Homescreen Widget Preview Card */}
-          {sharedDoodle && (
-            <View style={styles.widgetCardContainer}>
-              <View style={styles.widgetHeader}>
-                <View style={styles.widgetTitleRow}>
-                  <MaterialCommunityIcons name="cellphone-text" size={16} color={AppColors.primary} />
-                  <Text style={styles.widgetLabel}>Live Lockscreen & Home Widget</Text>
-                </View>
-                <TouchableOpacity onPress={onNavigateToDoodle}>
-                  <Text style={styles.widgetEditLink}>Edit Doodle</Text>
-                </TouchableOpacity>
+          <View style={styles.widgetCardContainer}>
+            <View style={styles.widgetHeader}>
+              <View style={styles.widgetTitleRow}>
+                <MaterialCommunityIcons name="cellphone-text" size={16} color={AppColors.primary} />
+                <Text style={styles.widgetLabel}>Live Lockscreen & Home Widget</Text>
               </View>
+              <TouchableOpacity onPress={onNavigateToDoodle}>
+                <Text style={styles.widgetEditLink}>
+                  {sharedDoodle ? 'Edit Doodle' : 'Doodle Now'}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
+            {sharedDoodle ? (
               <View style={styles.widgetCanvasPreview}>
                 <Svg viewBox="0 0 280 200" style={StyleSheet.absoluteFill}>
                   {sharedDoodle.strokes.map((s, idx) => (
@@ -201,14 +208,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   </Text>
                 </View>
               </View>
-            </View>
-          )}
+            ) : (
+              <TouchableOpacity
+                style={styles.emptyWidgetPreview}
+                onPress={onNavigateToDoodle}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="brush-outline" size={26} color="#E8CCD4" />
+                <Text style={styles.emptyWidgetTitle}>No widget doodle yet</Text>
+                <Text style={styles.emptyWidgetSubtitle}>
+                  Tap to draw a sweet sketch for your partner's phone screen!
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           {/* Mood Tracker Strip */}
           <MoodSelector
             currentMood={userMood}
             partnerMood={partnerMood}
-            partnerName={profile?.partnerName || 'Maya'}
+            partnerName={profile?.isPaired ? profile.partnerName : 'Partner'}
             onSelectMood={handleSelectMood}
           />
 
@@ -220,7 +239,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </TouchableOpacity>
           </View>
 
-          {todayMemory && (
+          {todayMemory ? (
             <PolaroidCard
               imageUri={todayMemory.imageUri}
               caption={todayMemory.caption}
@@ -230,6 +249,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               isLiked={todayMemory.isLiked}
               onPress={onNavigateToMemories}
             />
+          ) : (
+            <TouchableOpacity
+              style={styles.emptyMemoryCard}
+              onPress={onNavigateToMemories}
+              activeOpacity={0.85}
+            >
+              <View style={styles.emptyMemoryIconCircle}>
+                <Ionicons name="images-outline" size={26} color={AppColors.primary} />
+              </View>
+              <Text style={styles.emptyMemoryCardTitle}>No memories captured yet</Text>
+              <Text style={styles.emptyMemoryCardSubtitle}>
+                Tap to upload your first keepsake to the scrapbook! 📸
+              </Text>
+            </TouchableOpacity>
           )}
 
           {/* Bottom spacing for floating bar */}
@@ -425,6 +458,68 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: AppColors.primary,
+  },
+  emptyWidgetPreview: {
+    width: '100%',
+    height: 110,
+    borderRadius: 18,
+    backgroundColor: '#FFF7F8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#FFD4DC',
+  },
+  emptyWidgetTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: AppColors.textPrimary,
+    marginTop: 6,
+  },
+  emptyWidgetSubtitle: {
+    fontSize: 11,
+    color: AppColors.textSecondary,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  emptyMemoryCard: {
+    marginHorizontal: 16,
+    marginVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#FFCAD4',
+    shadowColor: '#E297A5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  emptyMemoryIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FFE8EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  emptyMemoryCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: AppColors.textPrimary,
+  },
+  emptyMemoryCardSubtitle: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 16,
   },
 });
 

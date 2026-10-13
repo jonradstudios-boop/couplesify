@@ -81,7 +81,15 @@ export const CoupleAvatarRing: React.FC<CoupleAvatarRingProps> = ({
           <View style={styles.avatarsRow}>
             {/* User Avatar */}
             <View style={[styles.avatarWrapper, styles.userAvatar]}>
-              <Image source={{ uri: userAvatar }} style={styles.avatarImage} />
+              {userAvatar ? (
+                <Image source={{ uri: userAvatar }} style={styles.avatarImage} />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { backgroundColor: '#FFE8EC' }]}>
+                  <Text style={[styles.avatarInitials, { color: AppColors.primary }]}>
+                    {userName ? userName.charAt(0).toUpperCase() : 'Y'}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Pulsing Interlocking Heart Badge */}
@@ -91,13 +99,21 @@ export const CoupleAvatarRing: React.FC<CoupleAvatarRingProps> = ({
 
             {/* Partner Avatar */}
             <View style={[styles.avatarWrapper, styles.partnerAvatar]}>
-              <Image source={{ uri: partnerAvatar }} style={styles.avatarImage} />
+              {partnerAvatar ? (
+                <Image source={{ uri: partnerAvatar }} style={styles.avatarImage} />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { backgroundColor: '#F0E8FF' }]}>
+                  <Text style={[styles.avatarInitials, { color: '#8F78D2' }]}>
+                    {partnerName ? partnerName.charAt(0).toUpperCase() : 'P'}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
 
           {/* Names */}
           <Text style={styles.namesLabel} numberOfLines={1}>
-            {userName} & {partnerName}
+            {userName || 'You'} & {partnerName || 'Partner'}
           </Text>
         </View>
       </View>
@@ -106,7 +122,7 @@ export const CoupleAvatarRing: React.FC<CoupleAvatarRingProps> = ({
       <View style={styles.daysBadge}>
         <Ionicons name="sparkles" size={14} color="#FF6575" style={{ marginRight: 6 }} />
         <Text style={styles.daysText}>
-          <Text style={styles.daysHighlight}>{daysTogether}</Text> Days Together
+          <Text style={styles.daysHighlight}>{daysTogether}</Text> {daysTogether === 1 ? 'Day Together' : 'Days Together'}
         </Text>
       </View>
     </View>
@@ -175,6 +191,16 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitials: {
+    fontSize: 26,
+    fontWeight: '900',
   },
   heartCenterBadge: {
     width: 30,

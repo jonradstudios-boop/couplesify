@@ -30,14 +30,29 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+  const partnerNameRef = useRef('Partner');
 
   useEffect(() => {
+    partnerNameRef.current = profile?.partnerName || 'Partner';
+  }, [profile?.partnerName]);
+
+  useEffect(() => {
+    const loadChat = async () => {
+      const prof = await StorageService.getProfile();
+      const msgs = await StorageService.getMessages();
+      setProfile(prof);
+      setMessages(msgs);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 300);
+    };
+
     loadChat();
 
     // Listen to real-time incoming messages
     const unsubMsg = RealtimeService.on('message', (msg: ChatMessage) => {
       setMessages((prev) => [...prev, msg]);
-      scrollToBottom();
+      scrollViewRef.current?.scrollToEnd({ animated: true });
     });
 
     const unsubNudge = RealtimeService.on('nudge', (nudgeData) => {
@@ -45,12 +60,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
         id: `nudge-${Date.now()}`,
         sender: 'partner',
         type: 'nudge',
-        text: nudgeData.text || 'Maya sent you a warm squeeze! 💕',
+        text: nudgeData.text || `${partnerNameRef.current} sent you a warm squeeze! 💕`,
         timestamp: Date.now(),
         status: 'read',
       };
       setMessages((prev) => [...prev, nudgeMsg]);
-      scrollToBottom();
+      scrollViewRef.current?.scrollToEnd({ animated: true });
     });
 
     return () => {
@@ -58,14 +73,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
       unsubNudge();
     };
   }, []);
-
-  const loadChat = async () => {
-    const prof = await StorageService.getProfile();
-    const msgs = await StorageService.getMessages();
-    setProfile(prof);
-    setMessages(msgs);
-    setTimeout(scrollToBottom, 300);
-  };
 
   const scrollToBottom = () => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -163,21 +170,31 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
         <View style={styles.headerRow}>
           <View style={styles.partnerInfoRow}>
             <View style={styles.avatarWrapper}>
-              <Image
-                source={{
-                  uri:
-                    profile?.partnerAvatar ||
-                    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
-                }}
-                style={styles.avatar}
-              />
-              <View style={styles.onlineBadge} />
+              {profile?.partnerAvatar ? (
+                <Image
+                  source={{ uri: profile.partnerAvatar }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <View style={styles.partnerAvatarFallback}>
+                  <Text style={styles.partnerAvatarInitial}>
+                    {profile?.partnerName ? profile.partnerName.charAt(0).toUpperCase() : 'P'}
+                  </Text>
+                </View>
+              )}
+              {profile?.isPaired && <View style={styles.onlineBadge} />}
             </View>
 
             <View style={styles.partnerTextCol}>
-              <Text style={styles.partnerName}>{profile?.partnerName || 'Maya'}</Text>
+              <Text style={styles.partnerName}>
+                {profile?.isPaired ? profile.partnerName : 'Your Partner'}
+              </Text>
               <Text style={styles.partnerStatus}>
-                {isPartnerTyping ? 'Typing... 💕' : 'Active now'}
+                {profile?.isPaired
+                  ? isPartnerTyping
+                    ? 'Typing... 💕'
+                    : 'Active now'
+                  : 'Not paired yet'}
               </Text>
             </View>
           </View>
@@ -218,6 +235,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
               <Ionicons name="lock-closed" size={12} color={AppColors.textSecondary} />
               <Text style={styles.securityText}>Private & end-to-end encrypted for couple only</Text>
             </View>
+
+            {messages.length === 0 && (
+              <View style={styles.emptyChatBox}>
+                <View style={styles.emptyChatIconCircle}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={32} color={AppColors.primary} />
+                </View>
+                <Text style={styles.emptyChatTitle}>No messages yet</Text>
+                <Text style={styles.emptyChatSubtitle}>
+                  Send a sweet note, voice note, or love nudge to start your conversation with {profile?.isPaired ? profile.partnerName : 'your partner'}! 💕
+                </Text>
+              </View>
+            )}
 
             {messages.map((m) => {
               const isMe = m.sender === 'user';
@@ -337,7 +366,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
 
             <TextInput
               style={styles.textInput}
-              placeholder="Send sweet note to Maya..."
+              placeholder={`Send sweet note to ${profile?.partnerName || 'Partner'}...`}
               placeholderTextColor="#B8A4AA"
               value={inputText}
               onChangeText={setInputText}
@@ -635,6 +664,46 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     opacity: 0.4,
+  },
+  partnerAvatarFallback: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
+    backgroundColor: '#F0E8FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  partnerAvatarInitial: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#8F78D2',
+  },
+  emptyChatBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+  },
+  emptyChatIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FFE8EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyChatTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: AppColors.textPrimary,
+    marginBottom: 6,
+  },
+  emptyChatSubtitle: {
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
 

@@ -74,14 +74,15 @@ export const AppContainer: React.FC = () => {
             }
           }}
           onCenterPress={() => setIsNudgeModalOpen(true)}
-          unreadCount={activeTab === 'chat' ? 0 : 1}
+          unreadCount={0}
         />
       )}
 
       {/* Center Love Nudge Modal */}
       <LoveNudgeModal
         visible={isNudgeModalOpen}
-        partnerName={profile?.partnerName || 'Maya'}
+        partnerName={profile?.partnerName || 'Partner'}
+        userName={profile?.userName}
         onClose={() => setIsNudgeModalOpen(false)}
         onOpenDoodle={() => {
           setIsNudgeModalOpen(false);

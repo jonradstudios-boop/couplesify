@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
+  Image,
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,31 +17,41 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import AppColors from '../theme/AppColors';
 import PolaroidCard from '../components/PolaroidCard';
-import StorageService, { MemoryItem } from '../services/StorageService';
-
-const SAMPLE_PRESET_PHOTOS = [
-  'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=800&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=800&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800&auto=format&fit=crop&q=80',
-];
+import StorageService, {
+  MemoryItem,
+  LetterItem,
+  CoupleProfile,
+} from '../services/StorageService';
 
 const MEMORY_TAGS = ['Date Night', 'Anniversary', 'Road Trip', 'Cozy Home', 'Milestone'];
 
 export const MemoryScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'memories' | 'messages'>('memories');
   const [memories, setMemories] = useState<MemoryItem[]>([]);
+  const [letters, setLetters] = useState<LetterItem[]>([]);
+  const [profile, setProfile] = useState<CoupleProfile | null>(null);
+
+  // Memory Upload Modal State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [newCaption, setNewCaption] = useState('');
   const [selectedTag, setSelectedTag] = useState('Date Night');
-  const [selectedPhotoUri, setSelectedPhotoUri] = useState(SAMPLE_PRESET_PHOTOS[0]);
+  const [selectedPhotoUri, setSelectedPhotoUri] = useState<string | null>(null);
+
+  // Letter Modal State
+  const [isLetterModalOpen, setIsLetterModalOpen] = useState(false);
+  const [newLetterBody, setNewLetterBody] = useState('');
 
   useEffect(() => {
-    loadMemories();
+    loadData();
   }, []);
 
-  const loadMemories = async () => {
-    const data = await StorageService.getMemories();
-    setMemories(data);
+  const loadData = async () => {
+    const prof = await StorageService.getProfile();
+    const mems = await StorageService.getMemories();
+    const lets = await StorageService.getLetters();
+    setProfile(prof);
+    setMemories(mems);
+    setLetters(lets);
   };
 
   const handlePickDeviceImage = async () => {
@@ -51,7 +62,7 @@ export const MemoryScreen: React.FC = () => {
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
           aspect: [4, 3],
-          quality: 0.8,
+          quality: 0.85,
         });
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -59,12 +70,12 @@ export const MemoryScreen: React.FC = () => {
         }
       }
     } catch {
-      // In web or restricted environments, preset photos are available
+      // Safe fallback
     }
   };
 
   const handleAddMemory = async () => {
-    if (!newCaption.trim()) return;
+    if (!newCaption.trim() || !selectedPhotoUri) return;
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {}
@@ -89,7 +100,36 @@ export const MemoryScreen: React.FC = () => {
     setMemories(updated);
     await StorageService.saveMemories(updated);
     setNewCaption('');
+    setSelectedPhotoUri(null);
     setIsUploadModalOpen(false);
+  };
+
+  const handleAddLetter = async () => {
+    if (!newLetterBody.trim()) return;
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+
+    const todayStr = new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(new Date());
+
+    const sender = profile?.userName && profile.userName !== 'You' ? profile.userName : 'You';
+
+    const newLetter: LetterItem = {
+      id: `l-${Date.now()}`,
+      senderName: sender,
+      body: newLetterBody.trim(),
+      date: todayStr,
+    };
+
+    const updated = [newLetter, ...letters];
+    setLetters(updated);
+    await StorageService.saveLetters(updated);
+    setNewLetterBody('');
+    setIsLetterModalOpen(false);
   };
 
   const handleLikeToggle = async (id: string, isLiked: boolean) => {
@@ -110,7 +150,7 @@ export const MemoryScreen: React.FC = () => {
   return (
     <LinearGradient colors={['#FCE8EC', '#FFF7F8']} style={styles.gradientContainer}>
       <SafeAreaView style={styles.safeArea}>
-        {/* Top Header with Dual-toggle pill: "Memories" | "Messages" */}
+        {/* Top Header with Dual-toggle pill: "Memories" | "Letters" */}
         <View style={styles.headerRow}>
           <Text style={styles.screenTitle}>Memory Scrapbook</Text>
           <View style={styles.dualTogglePill}>
@@ -138,74 +178,124 @@ export const MemoryScreen: React.FC = () => {
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {/* "Start Your Gallery" Banner */}
+          {/* Scrapbook Banner */}
           <View style={styles.galleryHeroCard}>
             <View style={styles.heroTextCol}>
-              <Text style={styles.heroTitle}>Our Shared Scrapbook</Text>
+              <Text style={styles.heroTitle}>Our Shared Keepsakes</Text>
               <Text style={styles.heroSubtitle}>
-                Every snapshot, late night talk, and beautiful adventure saved forever.
+                Every snapshot, heartfelt note, and couple adventure saved forever.
               </Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.uploadBtn}
-              onPress={() => setIsUploadModalOpen(true)}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="add" size={18} color="#FFFFFF" />
-              <Text style={styles.uploadBtnText}>+ Upload Memory</Text>
-            </TouchableOpacity>
+            {activeTab === 'memories' ? (
+              <TouchableOpacity
+                style={styles.uploadBtn}
+                onPress={() => {
+                  setSelectedPhotoUri(null);
+                  setIsUploadModalOpen(true);
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="add" size={18} color="#FFFFFF" />
+                <Text style={styles.uploadBtnText}>+ Upload Memory</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.uploadBtn}
+                onPress={() => setIsLetterModalOpen(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="pencil" size={16} color="#FFFFFF" />
+                <Text style={styles.uploadBtnText}>+ Write Letter</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {activeTab === 'memories' ? (
-            /* Timeline Feed */
-            <View style={styles.timelineContainer}>
-              <View style={styles.verticalTimelineLine} />
-
-              {memories.map((m, idx) => (
-                <View key={m.id} style={styles.timelineItemWrapper}>
-                  {/* Timeline Node Heart */}
-                  <View style={styles.timelineNode}>
-                    <Ionicons name="heart" size={12} color="#FF6575" />
-                  </View>
-
-                  <View style={styles.timelineCardCol}>
-                    <PolaroidCard
-                      imageUri={m.imageUri}
-                      caption={m.caption}
-                      date={m.date}
-                      tag={m.tag}
-                      likes={m.likes}
-                      isLiked={m.isLiked}
-                      onLikeToggle={(liked) => handleLikeToggle(m.id, liked)}
-                    />
-                  </View>
+            /* ======================================================== */
+            /* MEMORIES TAB                                             */
+            /* ======================================================== */
+            memories.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIconCircle}>
+                  <Ionicons name="camera-outline" size={38} color={AppColors.primary} />
                 </View>
-              ))}
-            </View>
+                <Text style={styles.emptyTitle}>Your Scrapbook is Empty</Text>
+                <Text style={styles.emptySubtitle}>
+                  Start saving your favorite real-life memories together. Tap below to choose your first couple photo!
+                </Text>
+                <TouchableOpacity
+                  style={styles.emptyActionBtn}
+                  onPress={() => {
+                    setSelectedPhotoUri(null);
+                    setIsUploadModalOpen(true);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="add" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.emptyActionBtnText}>Upload First Memory</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.timelineContainer}>
+                <View style={styles.verticalTimelineLine} />
+                {memories.map((m) => (
+                  <View key={m.id} style={styles.timelineItemWrapper}>
+                    {/* Timeline Node Heart */}
+                    <View style={styles.timelineNode}>
+                      <Ionicons name="heart" size={12} color="#FF6575" />
+                    </View>
+
+                    <View style={styles.timelineCardCol}>
+                      <PolaroidCard
+                        imageUri={m.imageUri}
+                        caption={m.caption}
+                        date={m.date}
+                        tag={m.tag}
+                        likes={m.likes}
+                        isLiked={m.isLiked}
+                        onLikeToggle={(liked) => handleLikeToggle(m.id, liked)}
+                      />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )
           ) : (
-            /* Letters / Sweet Notes Tab */
-            <View style={styles.lettersContainer}>
-              <View style={styles.letterCard}>
-                <View style={styles.letterHeader}>
-                  <Text style={styles.letterFrom}>From Maya 💌</Text>
-                  <Text style={styles.letterDate}>Yesterday, 11:24 PM</Text>
+            /* ======================================================== */
+            /* LETTERS TAB                                              */
+            /* ======================================================== */
+            letters.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIconCircle}>
+                  <Ionicons name="mail-open-outline" size={38} color={AppColors.primary} />
                 </View>
-                <Text style={styles.letterBody}>
-                  "Thank you for always making me laugh when I'm stressed. You truly make every day feel lighter and full of warmth. Can't wait for our trip next month!"
+                <Text style={styles.emptyTitle}>No Love Letters Yet 💌</Text>
+                <Text style={styles.emptySubtitle}>
+                  Leave a sweet, intimate love note or milestone letter for your partner to cherish anytime.
                 </Text>
+                <TouchableOpacity
+                  style={styles.emptyActionBtn}
+                  onPress={() => setIsLetterModalOpen(true)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="pencil" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.emptyActionBtnText}>Write First Love Letter</Text>
+                </TouchableOpacity>
               </View>
-
-              <View style={styles.letterCard}>
-                <View style={styles.letterHeader}>
-                  <Text style={styles.letterFrom}>From Alex 💖</Text>
-                  <Text style={styles.letterDate}>Oct 10, 2026</Text>
-                </View>
-                <Text style={styles.letterBody}>
-                  "Happy anniversary my love! Looking at all these memories we've built makes me so grateful. Here's to 10,000 more days together."
-                </Text>
+            ) : (
+              <View style={styles.lettersContainer}>
+                {letters.map((letter) => (
+                  <View key={letter.id} style={styles.letterCard}>
+                    <View style={styles.letterHeader}>
+                      <Text style={styles.letterFrom}>From {letter.senderName} 💌</Text>
+                      <Text style={styles.letterDate}>{letter.date}</Text>
+                    </View>
+                    <Text style={styles.letterBody}>"{letter.body}"</Text>
+                  </View>
+                ))}
               </View>
-            </View>
+            )
           )}
 
           <View style={{ height: 110 }} />
@@ -239,26 +329,32 @@ export const MemoryScreen: React.FC = () => {
               </ScrollView>
 
               {/* Photo Source Selector */}
-              <Text style={styles.inputLabel}>Select Romantic Photo</Text>
-              <View style={styles.presetRow}>
-                {SAMPLE_PRESET_PHOTOS.map((uri, idx) => (
+              <Text style={styles.inputLabel}>Choose Photo</Text>
+              {selectedPhotoUri ? (
+                <View style={styles.chosenPhotoWrapper}>
+                  <Image source={{ uri: selectedPhotoUri }} style={styles.chosenPhotoImage} />
                   <TouchableOpacity
-                    key={idx}
-                    style={[
-                      styles.presetThumbWrapper,
-                      selectedPhotoUri === uri && styles.presetThumbSelected,
-                    ]}
-                    onPress={() => setSelectedPhotoUri(uri)}
+                    style={styles.changePhotoBtn}
+                    onPress={handlePickDeviceImage}
+                    activeOpacity={0.8}
                   >
-                    <View style={styles.presetThumb} />
-                    <Text style={styles.presetLabel}>Photo {idx + 1}</Text>
+                    <Feather name="refresh-cw" size={13} color="#FFFFFF" />
+                    <Text style={styles.changePhotoText}>Change Photo</Text>
                   </TouchableOpacity>
-                ))}
-                <TouchableOpacity style={styles.devicePickBtn} onPress={handlePickDeviceImage}>
-                  <Feather name="image" size={18} color={AppColors.primary} />
-                  <Text style={styles.devicePickText}>Gallery</Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.devicePickBox}
+                  onPress={handlePickDeviceImage}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.devicePickIconCircle}>
+                    <Feather name="image" size={26} color={AppColors.primary} />
+                  </View>
+                  <Text style={styles.devicePickTitle}>Select from Gallery</Text>
+                  <Text style={styles.devicePickSubtitle}>Tap to pick a photo from your device</Text>
                 </TouchableOpacity>
-              </View>
+              )}
 
               {/* Caption Input */}
               <Text style={styles.inputLabel}>Caption / Sweet Note</Text>
@@ -272,9 +368,59 @@ export const MemoryScreen: React.FC = () => {
                 numberOfLines={3}
               />
 
-              <TouchableOpacity style={styles.confirmUploadBtn} onPress={handleAddMemory}>
+              <TouchableOpacity
+                style={[
+                  styles.confirmUploadBtn,
+                  (!newCaption.trim() || !selectedPhotoUri) && styles.confirmUploadBtnDisabled,
+                ]}
+                onPress={handleAddMemory}
+                disabled={!newCaption.trim() || !selectedPhotoUri}
+              >
                 <Ionicons name="sparkles" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.confirmUploadText}>Post to Scrapbook</Text>
+                <Text style={styles.confirmUploadText}>
+                  {selectedPhotoUri ? 'Post to Scrapbook' : 'Select a photo first'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Modal: Write New Love Letter */}
+        <Modal visible={isLetterModalOpen} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.uploadModalCard}>
+              <View style={styles.modalTopRow}>
+                <Text style={styles.uploadModalTitle}>Write Love Letter 💌</Text>
+                <TouchableOpacity onPress={() => setIsLetterModalOpen(false)}>
+                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.inputLabel}>
+                {profile?.partnerName && profile.partnerName !== 'Partner'
+                  ? `Letter for ${profile.partnerName}`
+                  : 'Letter for your Partner'}
+              </Text>
+              <TextInput
+                style={[styles.captionInput, { height: 120 }]}
+                placeholder="Write a sweet, heartfelt message for your partner to keep forever..."
+                placeholderTextColor="#C4B4BA"
+                value={newLetterBody}
+                onChangeText={setNewLetterBody}
+                multiline
+                numberOfLines={5}
+              />
+
+              <TouchableOpacity
+                style={[
+                  styles.confirmUploadBtn,
+                  !newLetterBody.trim() && styles.confirmUploadBtnDisabled,
+                ]}
+                onPress={handleAddLetter}
+                disabled={!newLetterBody.trim()}
+              >
+                <Ionicons name="heart" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.confirmUploadText}>Send Love Letter</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -375,6 +521,64 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   uploadBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  emptyContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 28,
+    marginHorizontal: 16,
+    marginTop: 14,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFE8EC',
+    borderStyle: 'dashed',
+    shadowColor: '#E297A5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FFE8EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: AppColors.textPrimary,
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 18,
+    paddingHorizontal: 12,
+  },
+  emptyActionBtn: {
+    backgroundColor: AppColors.primary,
+    borderRadius: 9999,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  emptyActionBtnText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
@@ -512,48 +716,64 @@ const styles = StyleSheet.create({
   tagPillTextActive: {
     color: '#FFFFFF',
   },
-  presetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  presetThumbWrapper: {
-    alignItems: 'center',
-    padding: 4,
-    borderRadius: 10,
-  },
-  presetThumbSelected: {
-    backgroundColor: '#FFE8EC',
-  },
-  presetThumb: {
-    width: 52,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: '#FFCCD4',
-    marginBottom: 4,
-  },
-  presetLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: AppColors.textSecondary,
-  },
-  devicePickBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 12,
+  devicePickBox: {
+    height: 100,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: AppColors.primary,
+    backgroundColor: '#FFF7F8',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
+    marginBottom: 8,
   },
-  devicePickText: {
-    fontSize: 12,
-    fontWeight: '700',
+  devicePickIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFE8EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  devicePickTitle: {
+    fontSize: 13,
+    fontWeight: '800',
     color: AppColors.primary,
+  },
+  devicePickSubtitle: {
+    fontSize: 11,
+    color: AppColors.textSecondary,
+    marginTop: 2,
+  },
+  chosenPhotoWrapper: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+    height: 130,
+    marginBottom: 8,
+  },
+  chosenPhotoImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+  },
+  changePhotoBtn: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderRadius: 20,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  changePhotoText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   captionInput: {
     backgroundColor: '#FFF7F8',
@@ -574,6 +794,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 18,
+  },
+  confirmUploadBtnDisabled: {
+    backgroundColor: '#E8CCD4',
   },
   confirmUploadText: {
     color: '#FFFFFF',

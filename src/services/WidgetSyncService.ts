@@ -61,7 +61,7 @@ export const WidgetSyncService = {
         },
       ],
       updatedAt: Date.now(),
-      author: 'Alex',
+      author: 'You',
       previewEmoji: '💖',
     };
   },

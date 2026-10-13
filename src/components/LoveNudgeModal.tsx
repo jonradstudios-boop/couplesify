@@ -14,6 +14,7 @@ import RealtimeService from '../services/RealtimeService';
 interface LoveNudgeModalProps {
   visible: boolean;
   partnerName: string;
+  userName?: string;
   onClose: () => void;
   onOpenDoodle: () => void;
 }
@@ -28,6 +29,7 @@ const NUDGE_ACTIONS = [
 export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
   visible,
   partnerName,
+  userName = 'Your partner',
   onClose,
   onOpenDoodle,
 }) => {
@@ -38,7 +40,8 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {}
 
-    RealtimeService.broadcastLoveNudge(`Alex ${action.text}`);
+    const sender = userName && userName !== 'You' ? userName : 'Your partner';
+    RealtimeService.broadcastLoveNudge(`${sender} ${action.text}`);
     setSentMessage(`Sent "${action.title}" to ${partnerName}! 💕`);
 
     setTimeout(() => {
