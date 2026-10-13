@@ -70,6 +70,22 @@ export interface ChatMessage {
   status: 'sent' | 'delivered' | 'read';
 }
 
+export interface EphemeralSnap {
+  id: string;
+  imageUri: string;
+  caption?: string;
+  timestamp: number;
+  author: string;
+}
+
+export interface SweetVoiceNote {
+  id: string;
+  audioUri?: string;
+  duration: number; // in seconds
+  timestamp: number;
+  senderName: string;
+}
+
 const STORAGE_KEYS = {
   CLEAN_V3: '@couplesify_clean_v3',
   PROFILE: '@couplesify_profile',
@@ -80,6 +96,8 @@ const STORAGE_KEYS = {
   MEMORIES: '@couplesify_memories',
   LETTERS: '@couplesify_letters',
   MESSAGES: '@couplesify_messages',
+  EPHEMERAL_SNAP: '@couplesify_ephemeral_snap',
+  SWEET_VOICE_NOTE: '@couplesify_sweet_voice_note',
 };
 
 // Clean initial empty defaults with NO fake / dummy records
@@ -222,6 +240,50 @@ export const StorageService = {
 
   async saveMessages(messages: ChatMessage[]): Promise<void> {
     await AsyncStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(messages));
+  },
+
+  async getEphemeralSnap(): Promise<EphemeralSnap | null> {
+    await this.ensureCleanState();
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.EPHEMERAL_SNAP);
+      if (!data) return null;
+      const snap: EphemeralSnap = JSON.parse(data);
+      // Auto-reset if older than 7 hours (7 * 60 * 60 * 1000 ms)
+      const SEVEN_HOURS_MS = 7 * 60 * 60 * 1000;
+      if (Date.now() - snap.timestamp >= SEVEN_HOURS_MS) {
+        await AsyncStorage.removeItem(STORAGE_KEYS.EPHEMERAL_SNAP);
+        return null;
+      }
+      return snap;
+    } catch {
+      return null;
+    }
+  },
+
+  async saveEphemeralSnap(snap: EphemeralSnap | null): Promise<void> {
+    if (!snap) {
+      await AsyncStorage.removeItem(STORAGE_KEYS.EPHEMERAL_SNAP);
+    } else {
+      await AsyncStorage.setItem(STORAGE_KEYS.EPHEMERAL_SNAP, JSON.stringify(snap));
+    }
+  },
+
+  async getSweetVoiceNote(): Promise<SweetVoiceNote | null> {
+    await this.ensureCleanState();
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.SWEET_VOICE_NOTE);
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async saveSweetVoiceNote(note: SweetVoiceNote | null): Promise<void> {
+    if (!note) {
+      await AsyncStorage.removeItem(STORAGE_KEYS.SWEET_VOICE_NOTE);
+    } else {
+      await AsyncStorage.setItem(STORAGE_KEYS.SWEET_VOICE_NOTE, JSON.stringify(note));
+    }
   },
 };
 

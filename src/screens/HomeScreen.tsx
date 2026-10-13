@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Platform,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
 import CoupleAvatarRing from '../components/CoupleAvatarRing';
@@ -20,47 +20,46 @@ import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import StorageService, {
   CoupleProfile,
   MemoryItem,
-  SharedDoodle,
+  EphemeralSnap,
 } from '../services/StorageService';
 import RealtimeService from '../services/RealtimeService';
-import Svg, { Path } from 'react-native-svg';
 
 interface HomeScreenProps {
   onNavigateToDoodle: () => void;
   onNavigateToMemories: () => void;
   onOpenSettings: () => void;
+  onOpenHeartHub?: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigateToDoodle,
   onNavigateToMemories,
   onOpenSettings,
+  onOpenHeartHub,
 }) => {
   const [profile, setProfile] = useState<CoupleProfile | null>(null);
   const [userMood, setUserMood] = useState<string>('Loving 🥰');
   const [partnerMood, setPartnerMood] = useState<string>('Waiting for partner... 💭');
   const [todayMemory, setTodayMemory] = useState<MemoryItem | null>(null);
-  const [sharedDoodle, setSharedDoodle] = useState<SharedDoodle | null>(null);
+  const [activeSnap, setActiveSnap] = useState<EphemeralSnap | null>(null);
 
   useEffect(() => {
     loadData();
 
-    // Listen to real-time partner mood and doodle updates
+    // Listen to real-time partner mood and snap updates
     const unsubMood = RealtimeService.on('mood', (data) => {
       if (data?.mood) {
         setPartnerMood(data.mood);
       }
     });
 
-    const unsubDoodle = RealtimeService.on('doodle', (doodle) => {
-      if (doodle) {
-        setSharedDoodle(doodle);
-      }
+    const unsubSnap = RealtimeService.on('snap', (snap) => {
+      setActiveSnap(snap);
     });
 
     return () => {
       unsubMood();
-      unsubDoodle();
+      unsubSnap();
     };
   }, []);
 
@@ -69,12 +68,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     const uMood = await StorageService.getUserMood();
     const pMood = await StorageService.getPartnerMood();
     const memories = await StorageService.getMemories();
-    const doodle = await StorageService.getSharedDoodle();
+    const snap = await StorageService.getEphemeralSnap();
 
     setProfile(prof);
     setUserMood(uMood);
     setPartnerMood(pMood);
-    setSharedDoodle(doodle);
+    setActiveSnap(snap);
     if (memories.length > 0) {
       setTodayMemory(memories[0]);
     } else {
@@ -86,15 +85,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     setUserMood(newMood);
     await StorageService.setUserMood(newMood);
     await RealtimeService.broadcastMood(newMood);
-  };
-
-  // Convert points for miniature preview
-  const pointsToMiniSvg = (points: { x: number; y: number }[]) => {
-    if (!points || points.length === 0) return '';
-    return points.reduce(
-      (acc, pt, idx) => (idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`),
-      ''
-    );
   };
 
   return (
@@ -157,74 +147,35 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             />
           )}
 
-          {/* Prominent Widget Doodle Launcher Button */}
-          <View style={styles.doodleLauncherWrapper}>
+          {/* Active 7-Hour Sweet Snap for Partner */}
+          {activeSnap && (
             <TouchableOpacity
-              style={styles.doodleLauncherButton}
+              style={styles.snapTeaserCard}
               onPress={() => {
-                try {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                } catch {}
-                onNavigateToDoodle();
+                if (onOpenHeartHub) onOpenHeartHub();
               }}
               activeOpacity={0.88}
             >
-              <View style={styles.launcherIconPill}>
-                <Ionicons name="pencil" size={18} color={AppColors.primary} />
-              </View>
-              <Text style={styles.launcherButtonText}>Doodle on Widget &gt;</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Shared Homescreen Widget Preview Card */}
-          <View style={styles.widgetCardContainer}>
-            <View style={styles.widgetHeader}>
-              <View style={styles.widgetTitleRow}>
-                <MaterialCommunityIcons name="cellphone-text" size={16} color={AppColors.primary} />
-                <Text style={styles.widgetLabel}>Live Lockscreen & Home Widget</Text>
-              </View>
-              <TouchableOpacity onPress={onNavigateToDoodle}>
-                <Text style={styles.widgetEditLink}>
-                  {sharedDoodle ? 'Edit Doodle' : 'Doodle Now'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {sharedDoodle ? (
-              <View style={styles.widgetCanvasPreview}>
-                <Svg viewBox="0 0 280 200" style={StyleSheet.absoluteFill}>
-                  {sharedDoodle.strokes.map((s, idx) => (
-                    <Path
-                      key={idx}
-                      d={pointsToMiniSvg(s.points)}
-                      stroke={s.color}
-                      strokeWidth={s.width}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                    />
-                  ))}
-                </Svg>
-                <View style={styles.widgetWatermark}>
-                  <Text style={styles.widgetWatermarkText}>
-                    Updated by {sharedDoodle.author}
-                  </Text>
+              <View style={styles.snapTeaserHeader}>
+                <View style={styles.snapTeaserTitleRow}>
+                  <Feather name="camera" size={15} color={AppColors.primary} />
+                  <Text style={styles.snapTeaserLabel}>Sweet Snap for Partner</Text>
+                </View>
+                <View style={styles.snapTeaserTimerChip}>
+                  <Ionicons name="time-outline" size={12} color="#FF6575" />
+                  <Text style={styles.snapTeaserTimerText}>7h Auto-Reset</Text>
                 </View>
               </View>
-            ) : (
-              <TouchableOpacity
-                style={styles.emptyWidgetPreview}
-                onPress={onNavigateToDoodle}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="brush-outline" size={26} color="#E8CCD4" />
-                <Text style={styles.emptyWidgetTitle}>No widget doodle yet</Text>
-                <Text style={styles.emptyWidgetSubtitle}>
-                  Tap to draw a sweet sketch for your partner's phone screen!
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+
+              <View style={styles.snapTeaserImageWrapper}>
+                <Image source={{ uri: activeSnap.imageUri }} style={styles.snapTeaserImage} />
+                <View style={styles.snapTeaserBadge}>
+                  <Ionicons name="heart" size={12} color="#FF6575" />
+                  <Text style={styles.snapTeaserBadgeText}>Tap central ❤️ for Heart Hub</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
 
           {/* Mood Tracker Strip */}
           <MoodSelector
@@ -354,97 +305,79 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 20,
   },
-  doodleLauncherWrapper: {
-    paddingHorizontal: 20,
-    marginVertical: 12,
-  },
-  doodleLauncherButton: {
-    backgroundColor: AppColors.primary,
-    borderRadius: 9999,
-    paddingVertical: 14,
-    paddingHorizontal: 22,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: AppColors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  launcherIconPill: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  launcherButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
-  widgetCardContainer: {
+  snapTeaserCard: {
     marginHorizontal: 16,
-    marginVertical: 8,
+    marginVertical: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.58)',
     borderRadius: 24,
     padding: 14,
-    borderWidth: 1.8,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.92)',
     shadowColor: '#E297A5',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 18,
     elevation: 3,
   },
-  widgetHeader: {
+  snapTeaserHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  widgetTitleRow: {
+  snapTeaserTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  widgetLabel: {
+  snapTeaserLabel: {
     fontSize: 12,
     fontWeight: '700',
     color: AppColors.textPrimary,
   },
-  widgetEditLink: {
-    fontSize: 12,
+  snapTeaserTimerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 232, 236, 0.85)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    gap: 4,
+  },
+  snapTeaserTimerText: {
+    fontSize: 11,
     fontWeight: '700',
     color: AppColors.primary,
   },
-  widgetCanvasPreview: {
+  snapTeaserImageWrapper: {
     width: '100%',
-    height: 120,
+    height: 140,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.42)',
     overflow: 'hidden',
     position: 'relative',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: '#FFE8EC',
   },
-  widgetWatermark: {
+  snapTeaserImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  snapTeaserBadge: {
     position: 'absolute',
-    bottom: 6,
+    bottom: 8,
     right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingVertical: 3,
     paddingHorizontal: 8,
-    borderRadius: 8,
+    borderRadius: 10,
+    gap: 4,
   },
-  widgetWatermarkText: {
+  snapTeaserBadgeText: {
     fontSize: 10,
-    fontWeight: '600',
-    color: AppColors.textSecondary,
+    fontWeight: '700',
+    color: AppColors.primary,
   },
   memoriesTeaserHeader: {
     flexDirection: 'row',
@@ -463,30 +396,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: AppColors.primary,
-  },
-  emptyWidgetPreview: {
-    width: '100%',
-    height: 110,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.38)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(255, 145, 160, 0.45)',
-  },
-  emptyWidgetTitle: {
-    fontFamily: AppFonts.title,
-    fontSize: 16,
-    color: AppColors.textPrimary,
-    marginTop: 6,
-  },
-  emptyWidgetSubtitle: {
-    fontSize: 11,
-    color: AppColors.textSecondary,
-    textAlign: 'center',
-    marginTop: 2,
   },
   emptyMemoryCard: {
     marginHorizontal: 16,

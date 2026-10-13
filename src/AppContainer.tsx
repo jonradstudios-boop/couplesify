@@ -46,6 +46,7 @@ export const AppContainer: React.FC = () => {
               onNavigateToDoodle={() => setIsDoodleFullscreen(true)}
               onNavigateToMemories={() => setActiveTab('memories')}
               onOpenSettings={() => setIsPairingModalOpen(true)}
+              onOpenHeartHub={() => setIsNudgeModalOpen(true)}
             />
           )}
 
@@ -78,11 +79,13 @@ export const AppContainer: React.FC = () => {
         />
       )}
 
-      {/* Center Love Nudge Modal */}
+      {/* Center Love Nudge & Heart Hub Modal */}
       <LoveNudgeModal
         visible={isNudgeModalOpen}
         partnerName={profile?.partnerName || 'Partner'}
         userName={profile?.userName}
+        profile={profile}
+        onSaveProfile={handleSaveProfile}
         onClose={() => setIsNudgeModalOpen(false)}
         onOpenDoodle={() => {
           setIsNudgeModalOpen(false);
