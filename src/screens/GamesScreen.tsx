@@ -20,7 +20,10 @@ import GameTile from '../components/GameTile';
 import GoalCard from '../components/GoalCard';
 import StorageService, { CoupleGoal } from '../services/StorageService';
 
+type GamesViewMode = 'hub' | 'mini_games' | 'spicy_games';
+
 export const GamesScreen: React.FC = () => {
+  const [viewMode, setViewMode] = useState<GamesViewMode>('hub');
   const [goals, setGoals] = useState<CoupleGoal[]>([]);
   const [activeGameModal, setActiveGameModal] = useState<string | null>(null);
 
@@ -45,20 +48,32 @@ export const GamesScreen: React.FC = () => {
   const [todIndex, setTodIndex] = useState(0);
   const [cardFlipped, setCardFlipped] = useState(false);
 
+  // Fantasy Dice State
+  const [diceAction, setDiceAction] = useState('Slow, passionate kiss 💋');
+  const [diceLocation, setDiceLocation] = useState('Under candlelight 🕯️');
+  const [isRollingDice, setIsRollingDice] = useState(false);
+
+  // Never Have I Ever State
+  const [nhieIndex, setNhieIndex] = useState(0);
+  const [nhieReaction, setNhieReaction] = useState<string | null>(null);
+
+  // Sensory Touch State
+  const [sensoryIndex, setSensoryIndex] = useState(0);
+
   // New Goal Modal State
   const [isNewGoalModal, setIsNewGoalModal] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalCategory, setNewGoalCategory] = useState('Romantic');
   const [newGoalTotal, setNewGoalTotal] = useState('3');
 
-  useEffect(() => {
-    loadGoals();
-  }, []);
-
   const loadGoals = async () => {
     const data = await StorageService.getGoals();
     setGoals(data);
   };
+
+  useEffect(() => {
+    loadGoals();
+  }, []);
 
   const handleToggleGoal = async (id: string) => {
     const updated = goals.map((g) => {
@@ -181,7 +196,7 @@ export const GamesScreen: React.FC = () => {
     {
       q: 'Who takes longer to get dressed before a date?',
       options: ['Definitely Me 👗', 'Maya / Partner 👔', 'Both equally slow ⏳'],
-      partnerAnswer: 1, // Partner chose Maya
+      partnerAnswer: 1,
     },
     {
       q: 'What is our ultimate dream vacation?',
@@ -276,63 +291,346 @@ export const GamesScreen: React.FC = () => {
     ],
   };
 
+  // ------------------ FANTASY DICE DATA ------------------
+  const DICE_ACTIONS = [
+    'Slow, passionate kiss 💋',
+    'Gentle neck & shoulder massage 💆',
+    'Whisper your deepest fantasy 🫦',
+    'Playful body tickle & caress ✨',
+    'Nibble partner\'s earlobe softly 👂',
+    'Trace lips with fingertip 💖',
+  ];
+
+  const DICE_LOCATIONS = [
+    'Under soft candlelight 🕯️',
+    'With eyes completely closed 🙈',
+    'On the living room rug 🛋️',
+    'To our favorite slow track 🎶',
+    'For 60 uninterrupted seconds ⏳',
+    'Tucked under warm blankets 🛏️',
+  ];
+
+  const rollFantasyDice = () => {
+    if (isRollingDice) return;
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+    setIsRollingDice(true);
+    setTimeout(() => {
+      const randomAct = DICE_ACTIONS[Math.floor(Math.random() * DICE_ACTIONS.length)];
+      const randomLoc = DICE_LOCATIONS[Math.floor(Math.random() * DICE_LOCATIONS.length)];
+      setDiceAction(randomAct);
+      setDiceLocation(randomLoc);
+      setIsRollingDice(false);
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+    }, 700);
+  };
+
+  // ------------------ NEVER HAVE I EVER DATA ------------------
+  const NHIE_PROMPTS = [
+    'Never have I ever had a spicy dream about you that made me blush waking up.',
+    'Never have I ever pretended to be asleep just so you would cuddle me closer.',
+    'Never have I ever wanted to steal a passionate kiss in a busy elevator.',
+    'Never have I ever stared at your lips while you were talking about your day.',
+    'Never have I ever sent a message that made my heart race before hitting send.',
+    'Never have I ever secretly planned our future wedding in my head.',
+  ];
+
+  // ------------------ SENSORY TOUCH DATA ------------------
+  const SENSORY_CHALLENGES = [
+    {
+      title: 'The Blindfold Guess',
+      prompt: 'Partner closes their eyes. Touch 3 different places (jaw, wrist, shoulder) with fingertips. They must guess each exact spot!',
+    },
+    {
+      title: 'Butterfly Whispers',
+      prompt: 'Flutter your eyelashes softly against partner\'s cheek (butterfly kiss) while whispering what you adore most about them.',
+    },
+    {
+      title: 'Secret Word on Skin',
+      prompt: 'Slowly trace a secret 4-letter love word onto partner\'s back with your index finger. Can they decipher it in 3 tries?',
+    },
+    {
+      title: 'Temperature Contrast',
+      prompt: 'Place your warm hands on partner\'s cool cheeks, then softly kiss the bridge of their nose.',
+    },
+  ];
+
   return (
     <LinearGradient colors={['#FCE8EC', '#FFF7F8']} style={styles.gradientContainer}>
       <SafeAreaView style={styles.safeArea}>
-        {/* Header */}
+        {/* Top Header */}
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.screenTitle}>Games & Play Zone</Text>
-            <Text style={styles.subtitle}>Fun couple mini-games & shared goals</Text>
+            <Text style={styles.subtitle}>
+              {viewMode === 'hub'
+                ? 'Select a game category to play together'
+                : viewMode === 'mini_games'
+                ? 'Sweet & playful couple games'
+                : 'Intimate & spicy couple challenges'}
+            </Text>
           </View>
           <View style={styles.headerHeart}>
-            <Ionicons name="game-controller" size={20} color={AppColors.primary} />
+            <Ionicons
+              name={viewMode === 'spicy_games' ? 'flame' : 'game-controller'}
+              size={20}
+              color={AppColors.primary}
+            />
           </View>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {/* 2x2 Grid of Mini-Games */}
-          <View style={styles.gridContainer}>
-            <View style={styles.gridRow}>
-              <GameTile
-                title="Daily Couple Quiz"
-                tagline="Answer together & reveal matches"
-                emoji="💌"
-                bgColor="#FFF2F4"
-                badgeText="Daily"
-                onPress={() => setActiveGameModal('quiz')}
-              />
-              <GameTile
-                title="Live Tic-Tac-Toe"
-                tagline="Hearts vs Stars real-time grid"
-                emoji="❤️"
-                bgColor="#F4EFFF"
-                badgeText="Live"
-                onPress={() => setActiveGameModal('ttt')}
-              />
-            </View>
+          {/* ======================================================== */}
+          {/* VIEW MODE 1: GAME HUB (TWO ENCIRCLED CATEGORY BOXES)     */}
+          {/* ======================================================== */}
+          {viewMode === 'hub' && (
+            <View style={styles.hubContainer}>
+              {/* ENCIRCLED BOX 1: MINI GAMES */}
+              <TouchableOpacity
+                style={styles.encircledCategoryBox}
+                onPress={() => {
+                  try {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  } catch {}
+                  setViewMode('mini_games');
+                }}
+                activeOpacity={0.88}
+              >
+                <LinearGradient
+                  colors={['#FFFFFF', '#F6F1FF']}
+                  style={styles.categoryCardGradient}
+                >
+                  <View style={styles.categoryCardTopRow}>
+                    <View style={[styles.categoryIconCircle, { backgroundColor: '#F0E8FF' }]}>
+                      <Text style={styles.categoryEmoji}>🎮</Text>
+                    </View>
+                    <View style={styles.categoryBadgePill}>
+                      <Text style={styles.categoryBadgeText}>2 Games Inside</Text>
+                    </View>
+                  </View>
 
-            <View style={styles.gridRow}>
-              <GameTile
-                title="Spicy Wheel"
-                tagline="Spin for fun romance prompts"
-                emoji="🎡"
-                bgColor="#FFF7E6"
-                badgeText="Interactive"
-                onPress={() => setActiveGameModal('wheel')}
-              />
-              <GameTile
-                title="Truth or Dare"
-                tagline="Romantic & spicy flip-cards"
-                emoji="🃏"
-                bgColor="#EBF8F2"
-                badgeText="Cards"
-                onPress={() => setActiveGameModal('tod')}
-              />
-            </View>
-          </View>
+                  <Text style={styles.categoryCardTitle}>Mini Games</Text>
+                  <Text style={styles.categoryCardSubtitle}>
+                    Fun, casual & competitive games for partners to play together
+                  </Text>
 
-          {/* Couple Goals Progress Checklist Header */}
+                  {/* Preview Chips */}
+                  <View style={styles.categoryChipsRow}>
+                    <View style={styles.categoryChip}>
+                      <Text style={styles.chipText}>❤️ Tic-Tac-Toe</Text>
+                    </View>
+                    <View style={styles.categoryChip}>
+                      <Text style={styles.chipText}>🃏 Truth or Dare</Text>
+                    </View>
+                    <View style={styles.categoryChip}>
+                      <Text style={styles.chipText}>💌 Couple Quiz</Text>
+                    </View>
+                  </View>
+
+                  {/* Redirect Action Footer */}
+                  <View style={styles.categoryFooter}>
+                    <Text style={styles.categoryFooterText}>Open Mini Games</Text>
+                    <View style={styles.arrowCircle}>
+                      <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                    </View>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* ENCIRCLED BOX 2: SPICY GAMES */}
+              <TouchableOpacity
+                style={[styles.encircledCategoryBox, styles.spicyBoxGlow]}
+                onPress={() => {
+                  try {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  } catch {}
+                  setViewMode('spicy_games');
+                }}
+                activeOpacity={0.88}
+              >
+                <LinearGradient
+                  colors={['#FFFFFF', '#FFF0F3']}
+                  style={styles.categoryCardGradient}
+                >
+                  <View style={styles.categoryCardTopRow}>
+                    <View style={[styles.categoryIconCircle, { backgroundColor: '#FFE8EC' }]}>
+                      <Text style={styles.categoryEmoji}>🔥</Text>
+                    </View>
+                    <View style={[styles.categoryBadgePill, styles.spicyBadgePill]}>
+                      <Text style={styles.spicyBadgeText}>Hot & Intimate • 4 Games</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.categoryCardTitle}>Spicy Games</Text>
+                  <Text style={styles.categoryCardSubtitle}>
+                    Seductive, daring & romantic games to spark deep connection and thrill
+                  </Text>
+
+                  {/* Preview Chips */}
+                  <View style={styles.categoryChipsRow}>
+                    <View style={styles.spicyChip}>
+                      <Text style={styles.spicyChipText}>🎡 Spicy Wheel</Text>
+                    </View>
+                    <View style={styles.spicyChip}>
+                      <Text style={styles.spicyChipText}>🎲 Fantasy Dice</Text>
+                    </View>
+                    <View style={styles.spicyChip}>
+                      <Text style={styles.spicyChipText}>🙈 Never Have I</Text>
+                    </View>
+                    <View style={styles.spicyChip}>
+                      <Text style={styles.spicyChipText}>💋 Sensory Touch</Text>
+                    </View>
+                  </View>
+
+                  {/* Redirect Action Footer */}
+                  <View style={styles.categoryFooter}>
+                    <Text style={[styles.categoryFooterText, { color: AppColors.primary }]}>
+                      Explore Spicy Games
+                    </Text>
+                    <View style={[styles.arrowCircle, { backgroundColor: AppColors.primary }]}>
+                      <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                    </View>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ======================================================== */}
+          {/* VIEW MODE 2: MINI GAMES REDIRECTED SECTION               */}
+          {/* ======================================================== */}
+          {viewMode === 'mini_games' && (
+            <View style={styles.subSectionContainer}>
+              <TouchableOpacity
+                style={styles.backToHubBtn}
+                onPress={() => setViewMode('hub')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="arrow-back" size={16} color={AppColors.primary} />
+                <Text style={styles.backToHubText}>Back to Game Hub</Text>
+              </TouchableOpacity>
+
+              <View style={styles.subSectionHeaderRow}>
+                <View>
+                  <Text style={styles.subSectionTitle}>Mini Games 🎮</Text>
+                  <Text style={styles.subSectionSubtitle}>
+                    Choose a game to play live with your partner
+                  </Text>
+                </View>
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>2 Games</Text>
+                </View>
+              </View>
+
+              {/* 2 Games Grid (Tic-Tac-Toe and Truth or Dare) */}
+              <View style={styles.gridRow}>
+                <GameTile
+                  title="Live Tic-Tac-Toe"
+                  tagline="Hearts vs Stars real-time board"
+                  emoji="❤️"
+                  bgColor="#F4EFFF"
+                  badgeText="Live"
+                  onPress={() => setActiveGameModal('ttt')}
+                />
+                <GameTile
+                  title="Truth or Dare"
+                  tagline="Romantic & spicy flip-cards"
+                  emoji="🃏"
+                  bgColor="#EBF8F2"
+                  badgeText="Cards"
+                  onPress={() => setActiveGameModal('tod')}
+                />
+              </View>
+
+              {/* Bonus Daily Quiz Tile */}
+              <View style={styles.gridRow}>
+                <GameTile
+                  title="Daily Couple Quiz"
+                  tagline="Answer together & reveal matches"
+                  emoji="💌"
+                  bgColor="#FFF2F4"
+                  badgeText="Daily"
+                  onPress={() => setActiveGameModal('quiz')}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* ======================================================== */}
+          {/* VIEW MODE 3: SPICY GAMES REDIRECTED SECTION              */}
+          {/* ======================================================== */}
+          {viewMode === 'spicy_games' && (
+            <View style={styles.subSectionContainer}>
+              <TouchableOpacity
+                style={styles.backToHubBtn}
+                onPress={() => setViewMode('hub')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="arrow-back" size={16} color={AppColors.primary} />
+                <Text style={styles.backToHubText}>Back to Game Hub</Text>
+              </TouchableOpacity>
+
+              <View style={styles.subSectionHeaderRow}>
+                <View>
+                  <Text style={styles.subSectionTitle}>Spicy Games 🔥</Text>
+                  <Text style={styles.subSectionSubtitle}>
+                    4 intimate & romantic couple games
+                  </Text>
+                </View>
+                <View style={[styles.countBadge, { backgroundColor: '#FFE8EC' }]}>
+                  <Text style={[styles.countBadgeText, { color: AppColors.primary }]}>
+                    4 Games
+                  </Text>
+                </View>
+              </View>
+
+              {/* 4 Spicy Games Grid */}
+              <View style={styles.gridRow}>
+                <GameTile
+                  title="Spicy Wheel"
+                  tagline="Spin for fun romance prompts"
+                  emoji="🎡"
+                  bgColor="#FFF7E6"
+                  badgeText="Spin"
+                  onPress={() => setActiveGameModal('wheel')}
+                />
+                <GameTile
+                  title="Fantasy Dice"
+                  tagline="Roll action & secret location"
+                  emoji="🎲"
+                  bgColor="#FFF0F3"
+                  badgeText="Roll"
+                  onPress={() => setActiveGameModal('dice')}
+                />
+              </View>
+
+              <View style={styles.gridRow}>
+                <GameTile
+                  title="Never Have I Ever"
+                  tagline="Spicy secrets & confessions"
+                  emoji="🙈"
+                  bgColor="#F6F0FF"
+                  badgeText="Cards"
+                  onPress={() => setActiveGameModal('nhie')}
+                />
+                <GameTile
+                  title="Sensory Touch"
+                  tagline="Blindfold touch & guess game"
+                  emoji="💋"
+                  bgColor="#EAF7F3"
+                  badgeText="Intimate"
+                  onPress={() => setActiveGameModal('sensory')}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* ======================================================== */}
+          {/* COUPLE GOALS & BUCKET LIST CHECKLIST (ON MAIN SCREEN)    */}
+          {/* ======================================================== */}
           <View style={styles.goalsHeaderRow}>
             <View>
               <Text style={styles.goalsTitle}>Couple Goals & Bucket List</Text>
@@ -358,7 +656,8 @@ export const GamesScreen: React.FC = () => {
             />
           ))}
 
-          <View style={{ height: 110 }} />
+          {/* Generous bottom spacing so nothing gets cut off by floating bar */}
+          <View style={{ height: 150 }} />
         </ScrollView>
 
         {/* ----------------- MODAL 1: DAILY QUIZ ----------------- */}
@@ -604,7 +903,140 @@ export const GamesScreen: React.FC = () => {
           </View>
         </Modal>
 
-        {/* ----------------- MODAL 5: ADD NEW GOAL ----------------- */}
+        {/* ----------------- MODAL 5: FANTASY DICE ----------------- */}
+        <Modal visible={activeGameModal === 'dice'} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.gameModalCard}>
+              <View style={styles.modalTopRow}>
+                <Text style={styles.gameModalTitle}>Fantasy Romance Dice 🎲</Text>
+                <TouchableOpacity onPress={() => setActiveGameModal(null)}>
+                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.diceIntroText}>
+                Roll the romantic action and location pair for tonight:
+              </Text>
+
+              <View style={styles.dicePairRow}>
+                <View style={styles.diceBox}>
+                  <Text style={styles.diceHeaderLabel}>ACTION</Text>
+                  <Text style={styles.diceEmoji}>💋</Text>
+                  <Text style={styles.diceValueText}>{diceAction}</Text>
+                </View>
+                <View style={styles.diceBox}>
+                  <Text style={styles.diceHeaderLabel}>SETTING</Text>
+                  <Text style={styles.diceEmoji}>🕯️</Text>
+                  <Text style={styles.diceValueText}>{diceLocation}</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.spinBtn, isRollingDice && styles.spinBtnDisabled]}
+                onPress={rollFantasyDice}
+                disabled={isRollingDice}
+              >
+                <Text style={styles.spinBtnText}>
+                  {isRollingDice ? 'Rolling Dice... 🎲' : 'Roll Romantic Pair! ✨'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ----------------- MODAL 6: NEVER HAVE I EVER ----------------- */}
+        <Modal visible={activeGameModal === 'nhie'} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.gameModalCard}>
+              <View style={styles.modalTopRow}>
+                <Text style={styles.gameModalTitle}>Never Have I Ever 🙈</Text>
+                <TouchableOpacity onPress={() => setActiveGameModal(null)}>
+                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.nhieCardPrompt}>
+                {NHIE_PROMPTS[nhieIndex % NHIE_PROMPTS.length]}
+              </Text>
+
+              <View style={styles.nhieActionsRow}>
+                <TouchableOpacity
+                  style={[styles.nhieChoiceBtn, { backgroundColor: '#FFE8EC' }]}
+                  onPress={() => {
+                    setNhieReaction('You said: I Have! 🙈 Maya owes you a sweet confession!');
+                    try {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    } catch {}
+                  }}
+                >
+                  <Text style={styles.nhieChoiceEmoji}>🙈</Text>
+                  <Text style={styles.nhieChoiceText}>I Have</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.nhieChoiceBtn, { backgroundColor: '#EBF8F2' }]}
+                  onPress={() => {
+                    setNhieReaction('You said: Never! 😇 Innocent angel!');
+                    try {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    } catch {}
+                  }}
+                >
+                  <Text style={styles.nhieChoiceEmoji}>😇</Text>
+                  <Text style={styles.nhieChoiceText}>Never</Text>
+                </TouchableOpacity>
+              </View>
+
+              {nhieReaction && (
+                <View style={styles.nhieReactionBox}>
+                  <Text style={styles.nhieReactionText}>{nhieReaction}</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={styles.spinBtn}
+                onPress={() => {
+                  setNhieIndex((i) => i + 1);
+                  setNhieReaction(null);
+                }}
+              >
+                <Text style={styles.spinBtnText}>Next Question &gt;</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ----------------- MODAL 7: SENSORY TOUCH CHALLENGE ----------------- */}
+        <Modal visible={activeGameModal === 'sensory'} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.gameModalCard}>
+              <View style={styles.modalTopRow}>
+                <Text style={styles.gameModalTitle}>Sensory Touch Challenge 💋</Text>
+                <TouchableOpacity onPress={() => setActiveGameModal(null)}>
+                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.sensoryCard}>
+                <Text style={styles.sensoryCardTitle}>
+                  {SENSORY_CHALLENGES[sensoryIndex % SENSORY_CHALLENGES.length].title}
+                </Text>
+                <Text style={styles.sensoryCardBody}>
+                  {SENSORY_CHALLENGES[sensoryIndex % SENSORY_CHALLENGES.length].prompt}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.spinBtn}
+                onPress={() => setSensoryIndex((i) => i + 1)}
+              >
+                <Text style={styles.spinBtnText}>Next Intimate Challenge &gt;</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ----------------- MODAL 8: ADD NEW GOAL ----------------- */}
         <Modal visible={isNewGoalModal} transparent animationType="slide">
           <View style={styles.modalOverlay}>
             <View style={styles.gameModalCard}>
@@ -691,9 +1123,191 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 24,
   },
-  gridContainer: {
-    paddingHorizontal: 10,
+  hubContainer: {
+    paddingHorizontal: 16,
     marginVertical: 8,
+    gap: 16,
+  },
+  encircledCategoryBox: {
+    borderRadius: 28,
+    shadowColor: '#E297A5',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  spicyBoxGlow: {
+    borderColor: '#FFDCE2',
+    shadowColor: '#FF6575',
+    shadowOpacity: 0.22,
+  },
+  categoryCardGradient: {
+    padding: 20,
+    borderRadius: 26,
+  },
+  categoryCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  categoryIconCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  categoryEmoji: {
+    fontSize: 26,
+  },
+  categoryBadgePill: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E8DCE8',
+  },
+  categoryBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#8F78D2',
+    textTransform: 'uppercase',
+  },
+  spicyBadgePill: {
+    backgroundColor: '#FFF0F3',
+    borderColor: '#FFCCD5',
+  },
+  spicyBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: AppColors.primary,
+    textTransform: 'uppercase',
+  },
+  categoryCardTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: AppColors.textPrimary,
+    marginBottom: 4,
+  },
+  categoryCardSubtitle: {
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  categoryChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  categoryChip: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ECE3F4',
+  },
+  chipText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: AppColors.textPrimary,
+  },
+  spicyChip: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFD4DC',
+  },
+  spicyChipText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: AppColors.textPrimary,
+  },
+  categoryFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(230, 210, 220, 0.4)',
+  },
+  categoryFooterText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#7A62B8',
+  },
+  arrowCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#8F78D2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subSectionContainer: {
+    paddingHorizontal: 12,
+    marginVertical: 4,
+  },
+  backToHubBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    marginHorizontal: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#FFE8EC',
+    gap: 6,
+  },
+  backToHubText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: AppColors.primary,
+  },
+  subSectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  subSectionTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: AppColors.textPrimary,
+  },
+  subSectionSubtitle: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginTop: 2,
+  },
+  countBadge: {
+    backgroundColor: '#F0E8FF',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#8F78D2',
   },
   gridRow: {
     flexDirection: 'row',
@@ -703,7 +1317,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    marginTop: 18,
+    marginTop: 20,
     marginBottom: 8,
   },
   goalsTitle: {
@@ -1043,6 +1657,110 @@ const styles = StyleSheet.create({
     color: AppColors.textPrimary,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  diceIntroText: {
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  dicePairRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  diceBox: {
+    flex: 1,
+    backgroundColor: '#FFF7F8',
+    borderRadius: 20,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#F8DCE2',
+  },
+  diceHeaderLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: AppColors.primary,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  diceEmoji: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  diceValueText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: AppColors.textPrimary,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  nhieCardPrompt: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: AppColors.textPrimary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginVertical: 18,
+    paddingHorizontal: 8,
+  },
+  nhieActionsRow: {
+    flexDirection: 'row',
+    gap: 14,
+    marginBottom: 14,
+  },
+  nhieChoiceBtn: {
+    flex: 1,
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  nhieChoiceEmoji: {
+    fontSize: 28,
+    marginBottom: 4,
+  },
+  nhieChoiceText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: AppColors.textPrimary,
+  },
+  nhieReactionBox: {
+    backgroundColor: '#FFF2F4',
+    padding: 12,
+    borderRadius: 14,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  nhieReactionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: AppColors.primary,
+    textAlign: 'center',
+  },
+  sensoryCard: {
+    backgroundColor: '#FFF7F8',
+    borderRadius: 20,
+    padding: 20,
+    marginVertical: 14,
+    borderWidth: 1.5,
+    borderColor: '#F8DCE2',
+  },
+  sensoryCardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: AppColors.primary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  sensoryCardBody: {
+    fontSize: 14,
+    color: AppColors.textPrimary,
+    lineHeight: 22,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   inputLabel: {
     fontSize: 12,
