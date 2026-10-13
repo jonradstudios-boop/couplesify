@@ -16,6 +16,7 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import AppColors from '../theme/AppColors';
+import AppFonts from '../theme/AppFonts';
 import PolaroidCard from '../components/PolaroidCard';
 import StorageService, {
   MemoryItem,
@@ -446,8 +447,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   screenTitle: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontFamily: AppFonts.title,
+    fontSize: 26,
     color: AppColors.textPrimary,
   },
   dualTogglePill: {
@@ -495,8 +496,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   heroTitle: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 22,
     color: AppColors.textPrimary,
     marginBottom: 4,
   },
@@ -551,8 +552,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 22,
     color: AppColors.textPrimary,
     marginBottom: 6,
   },
@@ -643,8 +644,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   letterFrom: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 17,
     color: AppColors.primary,
   },
   letterDate: {
@@ -681,8 +682,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   uploadModalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 22,
     color: AppColors.textPrimary,
   },
   inputLabel: {
@@ -737,8 +738,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   devicePickTitle: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 16,
     color: AppColors.primary,
   },
   devicePickSubtitle: {

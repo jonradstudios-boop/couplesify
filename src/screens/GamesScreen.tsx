@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AppColors from '../theme/AppColors';
+import AppFonts from '../theme/AppFonts';
 import GameTile from '../components/GameTile';
 import GoalCard from '../components/GoalCard';
 import StorageService, { CoupleGoal } from '../services/StorageService';
@@ -1111,8 +1112,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   screenTitle: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontFamily: AppFonts.title,
+    fontSize: 26,
     color: AppColors.textPrimary,
   },
   subtitle: {
@@ -1230,8 +1231,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   categoryCardTitle: {
-    fontSize: 20,
-    fontWeight: '900',
+    fontFamily: AppFonts.title,
+    fontSize: 24,
     color: AppColors.textPrimary,
     marginBottom: 4,
   },
@@ -1325,8 +1326,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   subSectionTitle: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontFamily: AppFonts.title,
+    fontSize: 21,
     color: AppColors.textPrimary,
   },
   subSectionSubtitle: {
@@ -1357,8 +1358,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   goalsTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 20,
     color: AppColors.textPrimary,
   },
   goalsSubtitle: {
@@ -1402,8 +1403,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   gameModalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 22,
     color: AppColors.textPrimary,
   },
   quizQuestionNumber: {
@@ -1785,8 +1786,8 @@ const styles = StyleSheet.create({
     borderColor: '#F8DCE2',
   },
   sensoryCardTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 20,
     color: AppColors.primary,
     marginBottom: 8,
     textAlign: 'center',
@@ -1840,8 +1841,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   emptyGoalsTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 19,
     color: AppColors.textPrimary,
     marginBottom: 4,
   },

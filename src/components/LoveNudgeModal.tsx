@@ -9,6 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AppColors from '../theme/AppColors';
+import AppFonts from '../theme/AppFonts';
 import RealtimeService from '../services/RealtimeService';
 
 interface LoveNudgeModalProps {
@@ -157,8 +158,8 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 24,
     color: AppColors.textPrimary,
     marginBottom: 4,
   },
@@ -190,8 +191,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   nudgeTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontFamily: AppFonts.title,
+    fontSize: 15,
     color: AppColors.textPrimary,
   },
   successBanner: {

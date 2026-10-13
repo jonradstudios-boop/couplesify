@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AppColors from '../theme/AppColors';
+import AppFonts from '../theme/AppFonts';
 import { CoupleGoal } from '../services/StorageService';
 
 interface GoalCardProps {
@@ -134,8 +135,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   title: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontFamily: AppFonts.title,
+    fontSize: 17,
     color: AppColors.textPrimary,
   },
   titleCompleted: {

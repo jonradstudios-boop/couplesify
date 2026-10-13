@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import AppColors from '../theme/AppColors';
+import AppFonts from '../theme/AppFonts';
 
 interface GameTileProps {
   title: string;
@@ -103,8 +104,8 @@ const styles = StyleSheet.create({
     fontSize: 22,
   },
   titleText: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 18,
     color: AppColors.textPrimary,
     marginBottom: 4,
   },

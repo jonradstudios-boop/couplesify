@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AppColors from '../theme/AppColors';
+import AppFonts from '../theme/AppFonts';
 import CoupleAvatarRing from '../components/CoupleAvatarRing';
 import MoodSelector from '../components/MoodSelector';
 import PolaroidCard from '../components/PolaroidCard';
@@ -293,10 +294,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   appTitle: {
-    fontSize: 24,
-    fontWeight: '900',
+    fontFamily: AppFonts.title,
+    fontSize: 28,
     color: AppColors.textPrimary,
-    letterSpacing: -0.5,
+    letterSpacing: 0.5,
   },
   heartSparkle: {
     marginLeft: 4,
@@ -450,8 +451,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   teaserSectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 20,
     color: AppColors.textPrimary,
   },
   seeAllText: {
@@ -472,8 +473,8 @@ const styles = StyleSheet.create({
     borderColor: '#FFD4DC',
   },
   emptyWidgetTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontFamily: AppFonts.title,
+    fontSize: 16,
     color: AppColors.textPrimary,
     marginTop: 6,
   },
@@ -510,8 +511,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyMemoryCardTitle: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 18,
     color: AppColors.textPrimary,
   },
   emptyMemoryCardSubtitle: {

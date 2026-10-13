@@ -11,6 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AppColors from '../theme/AppColors';
+import AppFonts from '../theme/AppFonts';
 import DoodleCanvas from '../components/DoodleCanvas';
 import StorageService, { SharedDoodle } from '../services/StorageService';
 import WidgetSyncService from '../services/WidgetSyncService';
@@ -133,8 +134,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   screenTitle: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 21,
     color: AppColors.textPrimary,
   },
   subtitle: {

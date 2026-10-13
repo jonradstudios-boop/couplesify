@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import AppColors from '../theme/AppColors';
+import AppFonts from '../theme/AppFonts';
 
 export interface MoodOption {
   id: string;
@@ -160,8 +161,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   selectorTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontFamily: AppFonts.title,
+    fontSize: 18,
     color: AppColors.textPrimary,
   },
   selectorSubtitle: {

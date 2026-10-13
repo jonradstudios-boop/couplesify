@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AppColors from '../theme/AppColors';
+import AppFonts from '../theme/AppFonts';
 
 export type TabKey = 'home' | 'games' | 'center' | 'memories' | 'chat';
 
@@ -178,14 +179,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFE8EC',
   },
   tabLabel: {
-    fontSize: 10.5,
-    fontWeight: '600',
+    fontFamily: AppFonts.title,
+    fontSize: 12,
     color: AppColors.textSecondary,
     marginTop: 2,
   },
   activeTabLabel: {
     color: AppColors.primary,
-    fontWeight: '700',
   },
   centerButtonContainer: {
     top: -18,

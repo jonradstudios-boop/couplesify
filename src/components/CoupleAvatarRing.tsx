@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import AppColors from '../theme/AppColors';
+import AppFonts from '../theme/AppFonts';
 
 interface CoupleAvatarRingProps {
   userAvatar: string;
@@ -199,8 +200,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarInitials: {
-    fontSize: 26,
-    fontWeight: '900',
+    fontFamily: AppFonts.title,
+    fontSize: 28,
   },
   heartCenterBadge: {
     width: 30,
@@ -220,10 +221,10 @@ const styles = StyleSheet.create({
     borderColor: '#FFE8EC',
   },
   namesLabel: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontFamily: AppFonts.title,
+    fontSize: 17,
     color: AppColors.textPrimary,
-    letterSpacing: 0.2,
+    letterSpacing: 0.5,
   },
   daysBadge: {
     flexDirection: 'row',
@@ -248,9 +249,9 @@ const styles = StyleSheet.create({
     color: AppColors.textPrimary,
   },
   daysHighlight: {
+    fontFamily: AppFonts.title,
     color: AppColors.primary,
-    fontWeight: '900',
-    fontSize: 17,
+    fontSize: 20,
   },
 });
 

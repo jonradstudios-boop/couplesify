@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AppColors from '../theme/AppColors';
+import AppFonts from '../theme/AppFonts';
 import { CoupleProfile } from '../services/StorageService';
 
 interface PairingModalProps {
@@ -209,8 +210,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 21,
     color: AppColors.textPrimary,
   },
   closeBtn: {
@@ -233,8 +234,8 @@ const styles = StyleSheet.create({
     borderColor: '#F8DCE2',
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontFamily: AppFonts.title,
+    fontSize: 17,
     color: AppColors.textPrimary,
   },
   sectionSubtitle: {

@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AppColors from '../theme/AppColors';
+import AppFonts from '../theme/AppFonts';
 import StorageService, { ChatMessage, CoupleProfile } from '../services/StorageService';
 import RealtimeService from '../services/RealtimeService';
 
@@ -436,8 +437,8 @@ const styles = StyleSheet.create({
   },
   partnerTextCol: {},
   partnerName: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 18,
     color: AppColors.textPrimary,
   },
   partnerStatus: {
@@ -694,8 +695,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   emptyChatTitle: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontFamily: AppFonts.title,
+    fontSize: 20,
     color: AppColors.textPrimary,
     marginBottom: 6,
   },

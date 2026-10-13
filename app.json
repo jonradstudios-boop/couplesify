@@ -43,7 +43,12 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-font"
+      [
+        "expo-font",
+        {
+          "fonts": ["./assets/fonts/MatchaStyle.ttf"]
+        }
+      ]
     ]
   }
 }
