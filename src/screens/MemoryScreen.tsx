@@ -10,6 +10,7 @@ import {
   TextInput,
   Image,
   Platform,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather } from '@expo/vector-icons';
@@ -149,6 +150,74 @@ export const MemoryScreen: React.FC = () => {
     await StorageService.saveMemories(updated);
   };
 
+  const handleDeleteMemory = async (id: string) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+
+    const performDelete = async () => {
+      const updated = memories.filter((m) => m.id !== id);
+      setMemories(updated);
+      await StorageService.saveMemories(updated);
+    };
+
+    if (Platform.OS === 'web') {
+      if (
+        typeof window !== 'undefined' &&
+        window.confirm('Are you sure you want to remove this memory from your scrapbook? 💕')
+      ) {
+        await performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Remove Memory',
+        'Are you sure you want to remove this memory from your scrapbook? 💕',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: performDelete,
+          },
+        ]
+      );
+    }
+  };
+
+  const handleDeleteLetter = async (id: string) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+
+    const performDelete = async () => {
+      const updated = letters.filter((l) => l.id !== id);
+      setLetters(updated);
+      await StorageService.saveLetters(updated);
+    };
+
+    if (Platform.OS === 'web') {
+      if (
+        typeof window !== 'undefined' &&
+        window.confirm('Are you sure you want to remove this love letter? 💌')
+      ) {
+        await performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Remove Love Letter',
+        'Are you sure you want to remove this love letter? 💌',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: performDelete,
+          },
+        ]
+      );
+    }
+  };
+
   return (
     <LinearGradient colors={['#FCE8EC', '#FFF7F8']} style={styles.gradientContainer}>
       <FallingHeartsBackground />
@@ -258,6 +327,7 @@ export const MemoryScreen: React.FC = () => {
                         likes={m.likes}
                         isLiked={m.isLiked}
                         onLikeToggle={(liked) => handleLikeToggle(m.id, liked)}
+                        onDelete={() => handleDeleteMemory(m.id)}
                       />
                     </View>
                   </View>
@@ -292,7 +362,17 @@ export const MemoryScreen: React.FC = () => {
                   <View key={letter.id} style={styles.letterCard}>
                     <View style={styles.letterHeader}>
                       <Text style={styles.letterFrom}>From {letter.senderName} 💌</Text>
-                      <Text style={styles.letterDate}>{letter.date}</Text>
+                      <View style={styles.letterMetaGroup}>
+                        <Text style={styles.letterDate}>{letter.date}</Text>
+                        <TouchableOpacity
+                          onPress={() => handleDeleteLetter(letter.id)}
+                          style={styles.deleteLetterBtn}
+                          activeOpacity={0.75}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="trash-outline" size={13} color="#FF6575" />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                     <Text style={styles.letterBody}>"{letter.body}"</Text>
                   </View>
@@ -653,6 +733,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: AppColors.textSecondary,
     fontWeight: '500',
+  },
+  letterMetaGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteLetterBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255, 232, 236, 0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.92)',
   },
   letterBody: {
     fontSize: 13.5,

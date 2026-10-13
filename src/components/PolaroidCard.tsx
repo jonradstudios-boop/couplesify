@@ -13,6 +13,7 @@ interface PolaroidCardProps {
   isLiked?: boolean;
   onPress?: () => void;
   onLikeToggle?: (newLiked: boolean) => void;
+  onDelete?: () => void;
 }
 
 export const PolaroidCard: React.FC<PolaroidCardProps> = ({
@@ -24,6 +25,7 @@ export const PolaroidCard: React.FC<PolaroidCardProps> = ({
   isLiked = false,
   onPress,
   onLikeToggle,
+  onDelete,
 }) => {
   const [liked, setLiked] = useState(isLiked);
   const [likeCount, setLikeCount] = useState(likes);
@@ -69,6 +71,21 @@ export const PolaroidCard: React.FC<PolaroidCardProps> = ({
           <View style={styles.tagBadge}>
             <Text style={styles.tagText}>{tag}</Text>
           </View>
+
+          {/* Delete Option Button floating on top right of photo */}
+          {onDelete && (
+            <TouchableOpacity
+              style={styles.deleteBadge}
+              onPress={(e) => {
+                e.stopPropagation?.();
+                onDelete();
+              }}
+              activeOpacity={0.75}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="trash-outline" size={15} color="#FF6575" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Content Section below photo */}
@@ -145,6 +162,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  deleteBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#E297A5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.95)',
   },
