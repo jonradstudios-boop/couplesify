@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
 import DoodleCanvas from '../components/DoodleCanvas';
+import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import StorageService, { SharedDoodle } from '../services/StorageService';
 import WidgetSyncService from '../services/WidgetSyncService';
 
@@ -50,6 +51,7 @@ export const DoodleScreen: React.FC<DoodleScreenProps> = ({ onBack }) => {
       colors={['#FCE8EC', '#FFF7F8']}
       style={styles.gradientContainer}
     >
+      <FallingHeartsBackground />
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={styles.headerRow}>

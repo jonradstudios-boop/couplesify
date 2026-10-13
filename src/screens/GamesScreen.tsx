@@ -19,6 +19,7 @@ import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
 import GameTile from '../components/GameTile';
 import GoalCard from '../components/GoalCard';
+import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import StorageService, { CoupleGoal } from '../services/StorageService';
 
 type GamesViewMode = 'hub' | 'mini_games' | 'spicy_games';
@@ -364,6 +365,7 @@ export const GamesScreen: React.FC = () => {
 
   return (
     <LinearGradient colors={['#FCE8EC', '#FFF7F8']} style={styles.gradientContainer}>
+      <FallingHeartsBackground />
       <SafeAreaView style={styles.safeArea}>
         {/* Top Header */}
         {viewMode === 'hub' ? (

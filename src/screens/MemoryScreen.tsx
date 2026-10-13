@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
 import PolaroidCard from '../components/PolaroidCard';
+import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import StorageService, {
   MemoryItem,
   LetterItem,
@@ -150,6 +151,7 @@ export const MemoryScreen: React.FC = () => {
 
   return (
     <LinearGradient colors={['#FCE8EC', '#FFF7F8']} style={styles.gradientContainer}>
+      <FallingHeartsBackground />
       <SafeAreaView style={styles.safeArea}>
         {/* Top Header with Dual-toggle pill: "Memories" | "Letters" */}
         <View style={styles.headerRow}>

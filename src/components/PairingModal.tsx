@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
+import FallingHeartsBackground from './FallingHeartsBackground';
 import { CoupleProfile } from '../services/StorageService';
 
 interface PairingModalProps {
@@ -77,6 +78,7 @@ export const PairingModal: React.FC<PairingModalProps> = ({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
+        <FallingHeartsBackground />
         <View style={styles.modalCard}>
           <View style={styles.headerRow}>
             <Text style={styles.title}>Couplesify Pairing & Settings</Text>

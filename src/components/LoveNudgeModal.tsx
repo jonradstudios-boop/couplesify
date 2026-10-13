@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
+import FallingHeartsBackground from './FallingHeartsBackground';
 import RealtimeService from '../services/RealtimeService';
 
 interface LoveNudgeModalProps {
@@ -54,6 +55,7 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
+        <FallingHeartsBackground />
         <View style={styles.modalCard}>
           <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
             <Ionicons name="close" size={20} color={AppColors.textSecondary} />

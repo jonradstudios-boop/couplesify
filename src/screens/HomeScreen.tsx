@@ -16,6 +16,7 @@ import AppFonts from '../theme/AppFonts';
 import CoupleAvatarRing from '../components/CoupleAvatarRing';
 import MoodSelector from '../components/MoodSelector';
 import PolaroidCard from '../components/PolaroidCard';
+import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import StorageService, {
   CoupleProfile,
   MemoryItem,
@@ -101,6 +102,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       colors={['#FCE8EC', '#FFF7F8']}
       style={styles.gradientContainer}
     >
+      <FallingHeartsBackground />
       <SafeAreaView style={styles.safeArea}>
         {/* Top Header */}
         <View style={styles.headerRow}>

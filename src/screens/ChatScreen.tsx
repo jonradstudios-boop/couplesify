@@ -16,6 +16,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
+import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import StorageService, { ChatMessage, CoupleProfile } from '../services/StorageService';
 import RealtimeService from '../services/RealtimeService';
 
@@ -166,6 +167,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
 
   return (
     <LinearGradient colors={['#FCE8EC', '#FFF7F8']} style={styles.gradientContainer}>
+      <FallingHeartsBackground />
       <SafeAreaView style={styles.safeArea}>
         {/* Chat Top Header */}
         <View style={styles.headerRow}>
