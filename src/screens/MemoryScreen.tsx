@@ -21,6 +21,7 @@ import AppFonts from '../theme/AppFonts';
 import PolaroidCard from '../components/PolaroidCard';
 import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import SpiralScrapbook from '../components/SpiralScrapbook';
+import ScrollJourneyLine from '../components/ScrollJourneyLine';
 import StorageService, {
   MemoryItem,
   LetterItem,
@@ -41,6 +42,10 @@ export const MemoryScreen: React.FC = () => {
   const [newCaption, setNewCaption] = useState('');
   const [selectedTag, setSelectedTag] = useState('Date Night');
   const [selectedPhotoUri, setSelectedPhotoUri] = useState<string | null>(null);
+
+  // SVG Journey Line Scroll Tracking State
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [timelineHeight, setTimelineHeight] = useState(0);
 
   // Letter Modal State
   const [isLetterModalOpen, setIsLetterModalOpen] = useState(false);
@@ -115,7 +120,7 @@ export const MemoryScreen: React.FC = () => {
   };
 
   const handleAddMemory = async () => {
-    if (!newCaption.trim() || !selectedPhotoUri) return;
+    if (!selectedPhotoUri) return;
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {}
@@ -129,7 +134,7 @@ export const MemoryScreen: React.FC = () => {
     const newItem: MemoryItem = {
       id: `m-${Date.now()}`,
       imageUri: selectedPhotoUri,
-      caption: newCaption.trim(),
+      caption: newCaption.trim() || 'A sweet couple memory saved forever 💕',
       date: todayStr,
       tag: selectedTag,
       likes: 1,
@@ -298,7 +303,23 @@ export const MemoryScreen: React.FC = () => {
           </View>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          onScroll={(event) => {
+            const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+            const scrollableRange = contentSize.height - layoutMeasurement.height;
+            if (scrollableRange > 8) {
+              const pct = Math.max(0, Math.min(1, contentOffset.y / scrollableRange));
+              setScrollProgress(pct);
+            } else {
+              // Interactive pull/drag response for 1 photo or compact view
+              const pullPct = Math.max(0, Math.min(1, contentOffset.y / 60));
+              setScrollProgress(Math.max(0.7, pullPct));
+            }
+          }}
+          scrollEventThrottle={16}
+        >
           {/* Scrapbook Banner */}
           <View style={styles.galleryHeroCard}>
             <View style={styles.heroTextCol}>
@@ -358,29 +379,60 @@ export const MemoryScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
             ) : (
-              <View style={styles.timelineContainer}>
-                <View style={styles.verticalTimelineLine} />
-                {memories.map((m) => (
-                  <View key={m.id} style={styles.timelineItemWrapper}>
-                    {/* Timeline Node Heart */}
-                    <View style={styles.timelineNode}>
-                      <Ionicons name="heart" size={12} color="#FF6575" />
-                    </View>
-
-                    <View style={styles.timelineCardCol}>
-                      <PolaroidCard
-                        imageUri={m.imageUri}
-                        caption={m.caption}
-                        date={m.date}
-                        tag={m.tag}
-                        likes={m.likes}
-                        isLiked={m.isLiked}
-                        onLikeToggle={(liked) => handleLikeToggle(m.id, liked)}
-                        onDelete={() => handleDeleteMemory(m.id)}
-                      />
-                    </View>
+              <View
+                style={styles.timelineContainer}
+                onLayout={(e) => setTimelineHeight(e.nativeEvent.layout.height)}
+              >
+                {/* Journey Line Tracker Status Pill */}
+                <View style={styles.journeyHeaderRow}>
+                  <View style={styles.journeyProgressPill}>
+                    <Ionicons name="sparkles" size={13} color="#FF6575" style={{ marginRight: 6 }} />
+                    <Text style={styles.journeyProgressText}>
+                      Journey: {Math.round(scrollProgress * 100)}% Drawn 💕
+                    </Text>
                   </View>
-                ))}
+                  <Text style={styles.memoryCountText}>
+                    {memories.length} {memories.length === 1 ? 'Keepsake' : 'Keepsakes'}
+                  </Text>
+                </View>
+
+                {/* Animated SVG Journey Connector Line that draws forward based on scroll */}
+                <ScrollJourneyLine
+                  height={timelineHeight}
+                  scrollProgress={scrollProgress}
+                  nodeCount={memories.length}
+                  centerX={28}
+                />
+
+                {memories.map((m, idx) => {
+                  const nodeThreshold = memories.length <= 1 ? 0.4 : idx / (memories.length - 1);
+                  const isNodeReached = scrollProgress >= nodeThreshold - 0.04;
+                  return (
+                    <View key={m.id} style={styles.timelineItemWrapper}>
+                      {/* Timeline Node Heart */}
+                      <View style={[styles.timelineNode, isNodeReached && styles.timelineNodeActive]}>
+                        <Ionicons
+                          name="heart"
+                          size={12}
+                          color={isNodeReached ? '#FFFFFF' : '#FF6575'}
+                        />
+                      </View>
+
+                      <View style={styles.timelineCardCol}>
+                        <PolaroidCard
+                          imageUri={m.imageUri}
+                          caption={m.caption}
+                          date={m.date}
+                          tag={m.tag}
+                          likes={m.likes}
+                          isLiked={m.isLiked}
+                          onLikeToggle={(liked) => handleLikeToggle(m.id, liked)}
+                          onDelete={() => handleDeleteMemory(m.id)}
+                        />
+                      </View>
+                    </View>
+                  );
+                })}
               </View>
             )
           ) : (
@@ -494,10 +546,10 @@ export const MemoryScreen: React.FC = () => {
               <TouchableOpacity
                 style={[
                   styles.confirmUploadBtn,
-                  (!newCaption.trim() || !selectedPhotoUri) && styles.confirmUploadBtnDisabled,
+                  !selectedPhotoUri && styles.confirmUploadBtnDisabled,
                 ]}
                 onPress={handleAddMemory}
-                disabled={!newCaption.trim() || !selectedPhotoUri}
+                disabled={!selectedPhotoUri}
               >
                 <Ionicons name="sparkles" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
                 <Text style={styles.confirmUploadText}>
@@ -733,9 +785,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'absolute',
-    left: 17,
+    left: 16,
     top: 26,
     zIndex: 10,
+  },
+  timelineNodeActive: {
+    backgroundColor: AppColors.primary,
+    borderColor: '#FFFFFF',
+    transform: [{ scale: 1.15 }],
+    shadowColor: '#FF6575',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  journeyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  journeyProgressPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: '#FFD6DF',
+    shadowColor: '#FF6575',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  journeyProgressText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: AppColors.primary,
+  },
+  memoryCountText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: AppColors.textSecondary,
   },
   timelineCardCol: {
     flex: 1,
