@@ -86,6 +86,25 @@ export interface SweetVoiceNote {
   senderName: string;
 }
 
+export interface ScrapbookPageData {
+  id: string;
+  templateType:
+    | 'milestone_cover'
+    | 'polaroid_collage'
+    | 'handwritten_letter'
+    | 'adventure_ticket'
+    | 'butterfly_pressed'
+    | 'midnight_whispers';
+  title: string;
+  subtitle?: string;
+  bodyText?: string;
+  photoUri1?: string;
+  photoUri2?: string;
+  caption1?: string;
+  caption2?: string;
+  dateStr?: string;
+}
+
 const STORAGE_KEYS = {
   CLEAN_V3: '@couplesify_clean_v3',
   PROFILE: '@couplesify_profile',
@@ -98,6 +117,7 @@ const STORAGE_KEYS = {
   MESSAGES: '@couplesify_messages',
   EPHEMERAL_SNAP: '@couplesify_ephemeral_snap',
   SWEET_VOICE_NOTE: '@couplesify_sweet_voice_note',
+  SCRAPBOOK_PAGES: '@couplesify_scrapbook_pages',
 };
 
 // Clean initial empty defaults with NO fake / dummy records
@@ -285,6 +305,79 @@ export const StorageService = {
       await AsyncStorage.setItem(STORAGE_KEYS.SWEET_VOICE_NOTE, JSON.stringify(note));
     }
   },
+
+  async getScrapbookPages(): Promise<ScrapbookPageData[]> {
+    await this.ensureCleanState();
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.SCRAPBOOK_PAGES);
+      return data ? JSON.parse(data) : DEFAULT_SCRAPBOOK_PAGES;
+    } catch {
+      return DEFAULT_SCRAPBOOK_PAGES;
+    }
+  },
+
+  async saveScrapbookPages(pages: ScrapbookPageData[]): Promise<void> {
+    await AsyncStorage.setItem(STORAGE_KEYS.SCRAPBOOK_PAGES, JSON.stringify(pages));
+  },
 };
+
+const DEFAULT_SCRAPBOOK_PAGES: ScrapbookPageData[] = [
+  {
+    id: 'page-1',
+    templateType: 'milestone_cover',
+    title: 'Our Sweet Journey',
+    subtitle: 'Where Forever Began • Chapter 1',
+    bodyText: 'From the moment our eyes first met, the ordinary world turned magical. This scrapbook holds every breath and heartbeat we share.',
+    dateStr: 'Established Together',
+    photoUri1: 'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?w=800&auto=format&fit=crop&q=80',
+    caption1: 'The first chapter of us ✨',
+  },
+  {
+    id: 'page-2',
+    templateType: 'polaroid_collage',
+    title: 'Favorite Little Moments',
+    subtitle: 'Stolen glances & laughing out loud',
+    photoUri1: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=800&auto=format&fit=crop&q=80',
+    photoUri2: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80',
+    caption1: 'Golden hour warmth 🌅',
+    caption2: 'Your sweetest smile 💕',
+    bodyText: 'We don’t remember days, we remember moments that took our breath away.',
+  },
+  {
+    id: 'page-3',
+    templateType: 'handwritten_letter',
+    title: 'A Letter from My Heart',
+    subtitle: 'Written under soft candlelight 🕯️',
+    bodyText: 'My darling,\n\nI just wanted to remind you today of how deeply you are loved. Even in the quietest, most mundane moments — cooking dinner, holding hands in the car, catching each other’s eyes across the room — you are my home.\n\nThank you for loving me as I am.\n\nForever & always, Yours.',
+    dateStr: 'Love Note #1',
+  },
+  {
+    id: 'page-4',
+    templateType: 'adventure_ticket',
+    title: 'Adventures with You',
+    subtitle: 'Boarding Pass • Destination: Anywhere Together',
+    photoUri1: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&auto=format&fit=crop&q=80',
+    caption1: 'Chasing horizons hand-in-hand 🚗✨',
+    bodyText: 'Flight #LOVE-777. Gate: Eternity. Seat: Next to You. We have miles to travel and lifetimes to explore together.',
+  },
+  {
+    id: 'page-5',
+    templateType: 'butterfly_pressed',
+    title: 'You Give Me Butterflies',
+    subtitle: 'Botanical specimen of delicate feelings 🌸',
+    photoUri1: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=800&auto=format&fit=crop&q=80',
+    caption1: 'Every butterfly reminds me of you 🪶',
+    bodyText: 'Like delicate wings catching morning dew, my pulse quickens every time you whisper my name. You are my spring in every winter.',
+  },
+  {
+    id: 'page-6',
+    templateType: 'midnight_whispers',
+    title: 'Midnight Vows & Starlight',
+    subtitle: '3:00 AM conversations & future dreams 🌌',
+    photoUri1: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
+    caption1: 'Under a billion shining stars 💫',
+    bodyText: 'When the world falls asleep, it is just you and me. I promise to hold your hand through every high, every low, and every star in the night sky.',
+  },
+];
 
 export default StorageService;

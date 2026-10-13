@@ -20,6 +20,7 @@ import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
 import PolaroidCard from '../components/PolaroidCard';
 import FallingHeartsBackground from '../components/FallingHeartsBackground';
+import SpiralScrapbook from '../components/SpiralScrapbook';
 import StorageService, {
   MemoryItem,
   LetterItem,
@@ -336,49 +337,40 @@ export const MemoryScreen: React.FC = () => {
             )
           ) : (
             /* ======================================================== */
-            /* LETTERS TAB                                              */
+            /* LETTERS TAB: REAL SPIRAL NOTEBOOK SCRAPBOOK              */
             /* ======================================================== */
-            letters.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <View style={styles.emptyIconCircle}>
-                  <Ionicons name="mail-open-outline" size={38} color={AppColors.primary} />
-                </View>
-                <Text style={styles.emptyTitle}>No Love Letters Yet 💌</Text>
-                <Text style={styles.emptySubtitle}>
-                  Leave a sweet, intimate love note or milestone letter for your partner to cherish anytime.
-                </Text>
-                <TouchableOpacity
-                  style={styles.emptyActionBtn}
-                  onPress={() => setIsLetterModalOpen(true)}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="pencil" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.emptyActionBtnText}>Write First Love Letter</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.lettersContainer}>
-                {letters.map((letter) => (
-                  <View key={letter.id} style={styles.letterCard}>
-                    <View style={styles.letterHeader}>
-                      <Text style={styles.letterFrom}>From {letter.senderName} 💌</Text>
-                      <View style={styles.letterMetaGroup}>
-                        <Text style={styles.letterDate}>{letter.date}</Text>
-                        <TouchableOpacity
-                          onPress={() => handleDeleteLetter(letter.id)}
-                          style={styles.deleteLetterBtn}
-                          activeOpacity={0.75}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Ionicons name="trash-outline" size={13} color="#FF6575" />
-                        </TouchableOpacity>
+            <View style={{ width: '100%' }}>
+              <SpiralScrapbook
+                profile={profile}
+                onWriteNewLetter={() => setIsLetterModalOpen(true)}
+              />
+
+              {/* Saved Individual Letters */}
+              {letters.length > 0 && (
+                <View style={[styles.lettersContainer, { marginTop: 16 }]}>
+                  <Text style={styles.savedLettersSectionTitle}>Saved Love Letters</Text>
+                  {letters.map((letter) => (
+                    <View key={letter.id} style={styles.letterCard}>
+                      <View style={styles.letterHeader}>
+                        <Text style={styles.letterFrom}>From {letter.senderName} 💌</Text>
+                        <View style={styles.letterMetaGroup}>
+                          <Text style={styles.letterDate}>{letter.date}</Text>
+                          <TouchableOpacity
+                            onPress={() => handleDeleteLetter(letter.id)}
+                            style={styles.deleteLetterBtn}
+                            activeOpacity={0.75}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons name="trash-outline" size={13} color="#FF6575" />
+                          </TouchableOpacity>
+                        </View>
                       </View>
+                      <Text style={styles.letterBody}>"{letter.body}"</Text>
                     </View>
-                    <Text style={styles.letterBody}>"{letter.body}"</Text>
-                  </View>
-                ))}
-              </View>
-            )
+                  ))}
+                </View>
+              )}
+            </View>
           )}
 
           <View style={{ height: 110 }} />
@@ -901,6 +893,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 14,
+  },
+  savedLettersSectionTitle: {
+    fontFamily: AppFonts.title,
+    fontSize: 18,
+    color: AppColors.textPrimary,
+    marginBottom: 10,
+    paddingHorizontal: 8,
   },
 });
 
