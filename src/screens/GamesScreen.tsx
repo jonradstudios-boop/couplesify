@@ -21,6 +21,8 @@ import GameTile from '../components/GameTile';
 import GoalCard from '../components/GoalCard';
 import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import StorageService, { CoupleGoal } from '../services/StorageService';
+import SpicyChiliTransition from '../components/SpicyChiliTransition';
+import SpicyGamesLounge from '../components/SpicyGamesLounge';
 
 type GamesViewMode = 'hub' | 'mini_games' | 'spicy_games';
 
@@ -68,10 +70,13 @@ export const GamesScreen: React.FC = () => {
   const [newGoalCategory, setNewGoalCategory] = useState('Romantic');
   const [newGoalTotal, setNewGoalTotal] = useState('3');
   const [partnerName, setPartnerName] = useState('Partner');
+  const [userName, setUserName] = useState('You');
+  const [isSpicyTransitionActive, setIsSpicyTransitionActive] = useState(false);
 
   const loadData = async () => {
     const prof = await StorageService.getProfile();
     if (prof?.partnerName) setPartnerName(prof.partnerName);
+    if (prof?.userName) setUserName(prof.userName);
     const data = await StorageService.getGoals();
     setGoals(data);
   };
@@ -363,9 +368,39 @@ export const GamesScreen: React.FC = () => {
     },
   ];
 
+  const handleOpenSpicyGames = () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    } catch {}
+    setIsSpicyTransitionActive(true);
+  };
+
+  if (viewMode === 'spicy_games') {
+    return (
+      <>
+        <SpicyGamesLounge
+          onBack={() => setViewMode('hub')}
+          partnerName={partnerName}
+          userName={userName}
+        />
+        <SpicyChiliTransition
+          visible={isSpicyTransitionActive}
+          onComplete={() => setIsSpicyTransitionActive(false)}
+        />
+      </>
+    );
+  }
+
   return (
     <LinearGradient colors={['#FCE8EC', '#FFF7F8']} style={styles.gradientContainer}>
       <FallingHeartsBackground />
+      <SpicyChiliTransition
+        visible={isSpicyTransitionActive}
+        onComplete={() => {
+          setIsSpicyTransitionActive(false);
+          setViewMode('spicy_games');
+        }}
+      />
       <SafeAreaView style={styles.safeArea}>
         {/* Top Header */}
         {viewMode === 'hub' ? (
@@ -394,30 +429,14 @@ export const GamesScreen: React.FC = () => {
             </TouchableOpacity>
 
             <View style={styles.headerTitleGroup}>
-              <Text style={styles.screenTitle}>
-                {viewMode === 'mini_games' ? 'Mini Games 🎮' : 'Spicy Games 🔥'}
-              </Text>
+              <Text style={styles.screenTitle}>Mini Games 🎮</Text>
               <Text style={styles.subtitle}>
-                {viewMode === 'mini_games'
-                  ? 'Choose a game to play live with your partner'
-                  : '4 intimate & romantic couple games'}
+                Choose a game to play live with your partner
               </Text>
             </View>
 
-            <View
-              style={[
-                styles.countBadge,
-                viewMode === 'spicy_games' && { backgroundColor: '#FFE8EC' },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.countBadgeText,
-                  viewMode === 'spicy_games' && { color: AppColors.primary },
-                ]}
-              >
-                {viewMode === 'mini_games' ? '2 Games' : '4 Games'}
-              </Text>
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>2 Games</Text>
             </View>
           </View>
         )}
@@ -484,12 +503,7 @@ export const GamesScreen: React.FC = () => {
                 {/* ENCIRCLED BOX 2: SPICY GAMES */}
                 <TouchableOpacity
                   style={[styles.encircledCategoryBox, styles.spicyBoxGlow]}
-                  onPress={() => {
-                    try {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    } catch {}
-                    setViewMode('spicy_games');
-                  }}
+                  onPress={handleOpenSpicyGames}
                   activeOpacity={0.88}
                 >
                   <LinearGradient
@@ -626,51 +640,7 @@ export const GamesScreen: React.FC = () => {
             </View>
           )}
 
-          {/* ======================================================== */}
-          {/* VIEW MODE 3: SPICY GAMES REDIRECTED DEDICATED LAYOUT      */}
-          {/* ======================================================== */}
-          {viewMode === 'spicy_games' && (
-            <View style={styles.subSectionContainer}>
-              {/* 4 Spicy Games Grid */}
-              <View style={styles.gridRow}>
-                <GameTile
-                  title="Spicy Wheel"
-                  tagline="Spin for fun romance prompts"
-                  emoji="🎡"
-                  bgColor="rgba(255, 247, 230, 0.60)"
-                  badgeText="Spin"
-                  onPress={() => setActiveGameModal('wheel')}
-                />
-                <GameTile
-                  title="Fantasy Dice"
-                  tagline="Roll action & secret location"
-                  emoji="🎲"
-                  bgColor="rgba(255, 240, 243, 0.60)"
-                  badgeText="Roll"
-                  onPress={() => setActiveGameModal('dice')}
-                />
-              </View>
 
-              <View style={styles.gridRow}>
-                <GameTile
-                  title="Never Have I Ever"
-                  tagline="Spicy secrets & confessions"
-                  emoji="🙈"
-                  bgColor="rgba(246, 240, 255, 0.60)"
-                  badgeText="Cards"
-                  onPress={() => setActiveGameModal('nhie')}
-                />
-                <GameTile
-                  title="Sensory Touch"
-                  tagline="Blindfold touch & guess game"
-                  emoji="💋"
-                  bgColor="rgba(234, 247, 243, 0.60)"
-                  badgeText="Intimate"
-                  onPress={() => setActiveGameModal('sensory')}
-                />
-              </View>
-            </View>
-          )}
 
           {/* Generous bottom spacing so nothing gets cut off by floating bar */}
           <View style={{ height: 150 }} />
