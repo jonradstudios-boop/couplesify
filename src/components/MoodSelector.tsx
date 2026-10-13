@@ -13,12 +13,12 @@ export interface MoodOption {
 }
 
 export const MOOD_OPTIONS: MoodOption[] = [
-  { id: 'loving', label: 'Loving', emoji: '🥰', bgPastel: '#FFE8EC' },
-  { id: 'needy', label: 'Needy', emoji: '🥺', bgPastel: '#E3D9F8' },
-  { id: 'cuddly', label: 'Cuddly', emoji: '🧸', bgPastel: '#FFECCC' },
-  { id: 'sleepy', label: 'Sleepy', emoji: '😴', bgPastel: '#D7EEFF' },
-  { id: 'excited', label: 'Excited', emoji: '🥳', bgPastel: '#D3F2E4' },
-  { id: 'grumpy', label: 'Grumpy', emoji: '😤', bgPastel: '#FCE4EC' },
+  { id: 'loving', label: 'Loving', emoji: '🥰', bgPastel: 'rgba(255, 232, 236, 0.62)' },
+  { id: 'needy', label: 'Needy', emoji: '🥺', bgPastel: 'rgba(227, 217, 248, 0.58)' },
+  { id: 'cuddly', label: 'Cuddly', emoji: '🧸', bgPastel: 'rgba(255, 236, 204, 0.58)' },
+  { id: 'sleepy', label: 'Sleepy', emoji: '😴', bgPastel: 'rgba(215, 238, 255, 0.58)' },
+  { id: 'excited', label: 'Excited', emoji: '🥳', bgPastel: 'rgba(211, 242, 228, 0.58)' },
+  { id: 'grumpy', label: 'Grumpy', emoji: '😤', bgPastel: 'rgba(252, 228, 236, 0.58)' },
 ];
 
 interface MoodSelectorProps {
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   partnerMoodCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: 'rgba(255, 255, 255, 0.58)',
     borderRadius: 22,
     paddingVertical: 14,
     paddingHorizontal: 18,
@@ -113,11 +113,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     shadowColor: '#E297A5',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
     elevation: 3,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: 'rgba(255, 255, 255, 0.92)',
   },
   partnerMoodHeader: {
     flexDirection: 'row',
@@ -184,11 +184,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     minWidth: 78,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.7)',
+    borderColor: 'rgba(255, 255, 255, 0.92)',
     shadowColor: '#F5B0C0',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.14,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
     elevation: 2,
   },
   selectedBadge: {

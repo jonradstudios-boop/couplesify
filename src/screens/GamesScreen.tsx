@@ -441,11 +441,11 @@ export const GamesScreen: React.FC = () => {
                   activeOpacity={0.88}
                 >
                   <LinearGradient
-                    colors={['#FFFFFF', '#F6F1FF']}
+                    colors={['rgba(255, 255, 255, 0.75)', 'rgba(246, 241, 255, 0.48)']}
                     style={styles.categoryCardGradient}
                   >
                     <View style={styles.categoryCardTopRow}>
-                      <View style={[styles.categoryIconCircle, { backgroundColor: '#F0E8FF' }]}>
+                      <View style={[styles.categoryIconCircle, { backgroundColor: 'rgba(240, 232, 255, 0.8)' }]}>
                         <Text style={styles.categoryEmoji}>🎮</Text>
                       </View>
                       <View style={styles.categoryBadgePill}>
@@ -493,7 +493,7 @@ export const GamesScreen: React.FC = () => {
                   activeOpacity={0.88}
                 >
                   <LinearGradient
-                    colors={['#FFFFFF', '#FFF0F3']}
+                    colors={['rgba(255, 255, 255, 0.75)', 'rgba(255, 240, 243, 0.48)']}
                     style={styles.categoryCardGradient}
                   >
                     <View style={styles.categoryCardTopRow}>
@@ -598,7 +598,7 @@ export const GamesScreen: React.FC = () => {
                   title="Live Tic-Tac-Toe"
                   tagline="Hearts vs Stars real-time board"
                   emoji="❤️"
-                  bgColor="#F4EFFF"
+                  bgColor="rgba(244, 239, 255, 0.60)"
                   badgeText="Live"
                   onPress={() => setActiveGameModal('ttt')}
                 />
@@ -606,7 +606,7 @@ export const GamesScreen: React.FC = () => {
                   title="Truth or Dare"
                   tagline="Romantic & spicy flip-cards"
                   emoji="🃏"
-                  bgColor="#EBF8F2"
+                  bgColor="rgba(235, 248, 242, 0.60)"
                   badgeText="Cards"
                   onPress={() => setActiveGameModal('tod')}
                 />
@@ -618,7 +618,7 @@ export const GamesScreen: React.FC = () => {
                   title="Daily Couple Quiz"
                   tagline="Answer together & reveal matches"
                   emoji="💌"
-                  bgColor="#FFF2F4"
+                  bgColor="rgba(255, 242, 244, 0.60)"
                   badgeText="Daily"
                   onPress={() => setActiveGameModal('quiz')}
                 />
@@ -637,7 +637,7 @@ export const GamesScreen: React.FC = () => {
                   title="Spicy Wheel"
                   tagline="Spin for fun romance prompts"
                   emoji="🎡"
-                  bgColor="#FFF7E6"
+                  bgColor="rgba(255, 247, 230, 0.60)"
                   badgeText="Spin"
                   onPress={() => setActiveGameModal('wheel')}
                 />
@@ -645,7 +645,7 @@ export const GamesScreen: React.FC = () => {
                   title="Fantasy Dice"
                   tagline="Roll action & secret location"
                   emoji="🎲"
-                  bgColor="#FFF0F3"
+                  bgColor="rgba(255, 240, 243, 0.60)"
                   badgeText="Roll"
                   onPress={() => setActiveGameModal('dice')}
                 />
@@ -656,7 +656,7 @@ export const GamesScreen: React.FC = () => {
                   title="Never Have I Ever"
                   tagline="Spicy secrets & confessions"
                   emoji="🙈"
-                  bgColor="#F6F0FF"
+                  bgColor="rgba(246, 240, 255, 0.60)"
                   badgeText="Cards"
                   onPress={() => setActiveGameModal('nhie')}
                 />
@@ -664,7 +664,7 @@ export const GamesScreen: React.FC = () => {
                   title="Sensory Touch"
                   tagline="Blindfold touch & guess game"
                   emoji="💋"
-                  bgColor="#EAF7F3"
+                  bgColor="rgba(234, 247, 243, 0.60)"
                   badgeText="Intimate"
                   onPress={() => setActiveGameModal('sensory')}
                 />
@@ -1171,17 +1171,17 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     shadowColor: '#E297A5',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
     elevation: 4,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderWidth: 1.8,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
     overflow: 'hidden',
   },
   spicyBoxGlow: {
-    borderColor: '#FFDCE2',
+    borderColor: 'rgba(255, 255, 255, 0.95)',
     shadowColor: '#FF6575',
-    shadowOpacity: 0.22,
+    shadowOpacity: 0.18,
   },
   categoryCardGradient: {
     padding: 20,
@@ -1209,12 +1209,12 @@ const styles = StyleSheet.create({
     fontSize: 26,
   },
   categoryBadgePill: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.82)',
     paddingVertical: 5,
     paddingHorizontal: 12,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E8DCE8',
+    borderColor: 'rgba(255, 255, 255, 0.95)',
   },
   categoryBadgeText: {
     fontSize: 11,
@@ -1223,8 +1223,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   spicyBadgePill: {
-    backgroundColor: '#FFF0F3',
-    borderColor: '#FFCCD5',
+    backgroundColor: 'rgba(255, 240, 243, 0.85)',
+    borderColor: 'rgba(255, 255, 255, 0.95)',
   },
   spicyBadgeText: {
     fontSize: 11,
@@ -1251,12 +1251,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   categoryChip: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#ECE3F4',
+    borderColor: 'rgba(255, 255, 255, 0.9)',
   },
   chipText: {
     fontSize: 11.5,
@@ -1264,12 +1264,12 @@ const styles = StyleSheet.create({
     color: AppColors.textPrimary,
   },
   spicyChip: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FFD4DC',
+    borderColor: 'rgba(255, 255, 255, 0.9)',
   },
   spicyChipText: {
     fontSize: 11.5,
@@ -1304,15 +1304,15 @@ const styles = StyleSheet.create({
   backToHubBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
     alignSelf: 'flex-start',
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 16,
     marginHorizontal: 8,
     marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#FFE8EC',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
     gap: 6,
   },
   backToHubText: {
@@ -1389,14 +1389,16 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   gameModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
     borderRadius: 28,
     padding: 22,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.16,
     shadowRadius: 20,
-    elevation: 10,
+    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
   },
   modalTopRow: {
     flexDirection: 'row',
@@ -1427,11 +1429,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   quizOptionBtn: {
-    backgroundColor: '#FFF7F8',
+    backgroundColor: 'rgba(255, 247, 248, 0.65)',
     borderRadius: 16,
     padding: 14,
     borderWidth: 1.5,
-    borderColor: '#F8DCE2',
+    borderColor: 'rgba(255, 255, 255, 0.92)',
     position: 'relative',
   },
   quizOptionSelected: {
@@ -1466,10 +1468,12 @@ const styles = StyleSheet.create({
   },
   revealBanner: {
     marginTop: 18,
-    backgroundColor: '#FFF2F4',
+    backgroundColor: 'rgba(255, 242, 244, 0.85)',
     padding: 14,
     borderRadius: 16,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.92)',
   },
   revealBannerTitle: {
     fontSize: 13,
@@ -1515,12 +1519,12 @@ const styles = StyleSheet.create({
   tttCell: {
     width: 74,
     height: 74,
-    backgroundColor: '#FFF7F8',
+    backgroundColor: 'rgba(255, 247, 248, 0.65)',
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#F8DCE2',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.92)',
   },
   tttCellText: {
     fontSize: 28,
@@ -1547,9 +1551,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 14,
-    backgroundColor: '#FFF7F8',
+    backgroundColor: 'rgba(255, 247, 248, 0.65)',
     borderWidth: 1.5,
-    borderColor: '#F8DCE2',
+    borderColor: 'rgba(255, 255, 255, 0.92)',
   },
   tierBtnActive: {
     backgroundColor: AppColors.primary,
@@ -1636,13 +1640,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   wheelResultBox: {
-    backgroundColor: '#FFF5F6',
+    backgroundColor: 'rgba(255, 245, 246, 0.78)',
     borderRadius: 16,
     padding: 14,
     marginTop: 14,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FFE8EC',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.92)',
   },
   wheelResultTitle: {
     fontSize: 12,
@@ -1661,17 +1665,17 @@ const styles = StyleSheet.create({
   flipCard: {
     width: '100%',
     height: 180,
-    backgroundColor: '#FFF7F8',
+    backgroundColor: 'rgba(255, 247, 248, 0.65)',
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
-    borderWidth: 2,
-    borderColor: '#F8DCE2',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.92)',
     marginVertical: 12,
   },
   flipCardFlipped: {
-    backgroundColor: '#FFE8EC',
+    backgroundColor: 'rgba(255, 232, 236, 0.85)',
     borderColor: AppColors.primary,
   },
   cardFront: {
@@ -1710,12 +1714,12 @@ const styles = StyleSheet.create({
   },
   diceBox: {
     flex: 1,
-    backgroundColor: '#FFF7F8',
+    backgroundColor: 'rgba(255, 247, 248, 0.65)',
     borderRadius: 20,
     padding: 16,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#F8DCE2',
+    borderColor: 'rgba(255, 255, 255, 0.92)',
   },
   diceHeaderLabel: {
     fontSize: 11,
@@ -1751,11 +1755,12 @@ const styles = StyleSheet.create({
   },
   nhieChoiceBtn: {
     flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.68)',
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
+    borderColor: 'rgba(255, 255, 255, 0.92)',
   },
   nhieChoiceEmoji: {
     fontSize: 28,
@@ -1767,11 +1772,13 @@ const styles = StyleSheet.create({
     color: AppColors.textPrimary,
   },
   nhieReactionBox: {
-    backgroundColor: '#FFF2F4',
+    backgroundColor: 'rgba(255, 242, 244, 0.8)',
     padding: 12,
     borderRadius: 14,
     marginBottom: 10,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
   },
   nhieReactionText: {
     fontSize: 13,
@@ -1780,12 +1787,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   sensoryCard: {
-    backgroundColor: '#FFF7F8',
+    backgroundColor: 'rgba(255, 247, 248, 0.65)',
     borderRadius: 20,
     padding: 20,
     marginVertical: 14,
     borderWidth: 1.5,
-    borderColor: '#F8DCE2',
+    borderColor: 'rgba(255, 255, 255, 0.92)',
   },
   sensoryCardTitle: {
     fontFamily: AppFonts.title,
@@ -1809,29 +1816,28 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   modalTextInput: {
-    backgroundColor: '#FFF7F8',
+    backgroundColor: 'rgba(255, 247, 248, 0.72)',
     borderRadius: 12,
     padding: 12,
     fontSize: 14,
     color: AppColors.textPrimary,
-    borderWidth: 1,
-    borderColor: '#F0D4DC',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.92)',
   },
   emptyGoalsCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.58)',
     borderRadius: 22,
     padding: 24,
     marginHorizontal: 16,
     marginVertical: 10,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#FFE8EC',
-    borderStyle: 'dashed',
+    borderColor: 'rgba(255, 255, 255, 0.92)',
     shadowColor: '#E297A5',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 3,
   },
   emptyGoalsIconCircle: {
     width: 52,

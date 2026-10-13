@@ -98,7 +98,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, onToggle, onIncrement 
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.58)',
     borderRadius: 22,
     padding: 16,
     marginVertical: 6,
@@ -106,10 +106,10 @@ const styles = StyleSheet.create({
     shadowColor: '#E297A5',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
-    shadowRadius: 10,
+    shadowRadius: 16,
     elevation: 3,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: 'rgba(255, 255, 255, 0.92)',
   },
   headerRow: {
     flexDirection: 'row',
@@ -127,6 +127,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 8,
     marginBottom: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
   },
   categoryText: {
     fontSize: 10,
@@ -147,18 +149,18 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    borderWidth: 2,
-    borderColor: '#E0D4D8',
+    borderWidth: 1.8,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
   },
   progressSection: {
     marginTop: 2,
   },
   barBackground: {
     height: 7,
-    backgroundColor: '#F5ECF0',
+    backgroundColor: 'rgba(245, 236, 240, 0.7)',
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 6,
@@ -180,10 +182,12 @@ const styles = StyleSheet.create({
   addStepButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF2F4',
+    backgroundColor: 'rgba(255, 242, 244, 0.85)',
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
   },
   addStepText: {
     fontSize: 11,

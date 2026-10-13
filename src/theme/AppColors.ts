@@ -10,6 +10,17 @@ export const AppColors = {
   surfaceDim: 'rgba(255, 255, 255, 0.65)',
   surfaceOverlay: 'rgba(45, 36, 43, 0.45)',
 
+  // Invisible Glassmorphic Design System
+  glassSurface: 'rgba(255, 255, 255, 0.56)',
+  glassSurfaceLight: 'rgba(255, 255, 255, 0.42)',
+  glassSurfaceSubtle: 'rgba(255, 255, 255, 0.28)',
+  glassSurfaceActive: 'rgba(255, 255, 255, 0.78)',
+  glassBorder: 'rgba(255, 255, 255, 0.85)',
+  glassBorderSubtle: 'rgba(255, 255, 255, 0.60)',
+  glassBorderCoral: 'rgba(255, 101, 117, 0.35)',
+  glassOptionPink: 'rgba(255, 232, 236, 0.58)',
+  glassOptionLavender: 'rgba(227, 217, 248, 0.55)',
+
   // Primary Accent & Actions
   primary: '#FF6575', // Coral-Strawberry
   primaryDark: '#E04859',
