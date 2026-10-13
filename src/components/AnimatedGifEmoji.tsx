@@ -87,6 +87,12 @@ interface AnimatedGifEmojiProps {
   isSelected?: boolean;
 }
 
+function extractFirstEmoji(str?: string): string {
+  if (!str) return '💕';
+  const match = str.match(/[\p{Extended_Pictographic}\uD83C-\uDBFF\uDC00-\uDFFF]/u);
+  return match ? match[0] : (str.length <= 2 ? str : '💕');
+}
+
 export const AnimatedGifEmoji: React.FC<AnimatedGifEmojiProps> = ({
   emoji,
   gifUrl,
@@ -175,8 +181,11 @@ export const AnimatedGifEmoji: React.FC<AnimatedGifEmojiProps> = ({
           onError={() => setHasError(true)}
         />
       ) : (
-        <Text style={[styles.fallbackEmoji, { fontSize: size * 0.72 }]}>
-          {emoji || '💕'}
+        <Text
+          style={[styles.fallbackEmoji, { fontSize: size * 0.72 }]}
+          numberOfLines={1}
+        >
+          {extractFirstEmoji(emoji)}
         </Text>
       )}
     </Animated.View>

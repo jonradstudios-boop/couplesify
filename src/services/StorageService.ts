@@ -185,7 +185,7 @@ export const StorageService = {
 
   async getPartnerMood(): Promise<string> {
     await this.ensureCleanState();
-    return (await AsyncStorage.getItem(STORAGE_KEYS.PARTNER_MOOD)) || 'Waiting for partner... 💭';
+    return (await AsyncStorage.getItem(STORAGE_KEYS.PARTNER_MOOD)) || '';
   },
 
   async setPartnerMood(mood: string): Promise<void> {

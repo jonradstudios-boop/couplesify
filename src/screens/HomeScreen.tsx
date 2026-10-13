@@ -39,7 +39,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const [profile, setProfile] = useState<CoupleProfile | null>(null);
   const [userMood, setUserMood] = useState<string>('Loving 🥰');
-  const [partnerMood, setPartnerMood] = useState<string>('Waiting for partner... 💭');
+  const [partnerMood, setPartnerMood] = useState<string>('');
   const [todayMemory, setTodayMemory] = useState<MemoryItem | null>(null);
   const [activeSnap, setActiveSnap] = useState<EphemeralSnap | null>(null);
 

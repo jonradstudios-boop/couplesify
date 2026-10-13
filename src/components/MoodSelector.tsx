@@ -44,24 +44,32 @@ export const MoodSelector: React.FC<MoodSelectorProps> = ({
     onSelectMood(`${mood.label} ${mood.emoji}`);
   };
 
+  const hasPartnerMood = Boolean(
+    partnerMood &&
+      partnerMood.trim().length > 0 &&
+      !partnerMood.toLowerCase().includes('waiting')
+  );
+
   return (
     <View style={styles.container}>
-      {/* Partner Live Mood Card with Subtle Glass Glow */}
-      <View style={styles.partnerMoodCard}>
-        <View style={styles.partnerMoodHeader}>
-          <View style={styles.pulseDot} />
-          <Text style={styles.partnerLabel}>{partnerName}'s Mood Today</Text>
-        </View>
-        <View style={styles.partnerMoodContent}>
-          <View style={styles.partnerMoodRow}>
-            <AnimatedGifEmoji emoji={partnerMood} size={32} style={styles.partnerEmojiSpacing} />
-            <Text style={styles.partnerMoodValue}>{partnerMood}</Text>
+      {/* Partner Live Mood Card: Only shown when partner actually set a mood */}
+      {hasPartnerMood ? (
+        <View style={styles.partnerMoodCard}>
+          <View style={styles.partnerMoodHeader}>
+            <View style={styles.pulseDot} />
+            <Text style={styles.partnerLabel}>{partnerName}'s Mood Today</Text>
           </View>
-          <View style={styles.heartGlowIcon}>
-            <Ionicons name="sparkles" size={14} color="#FF6575" />
+          <View style={styles.partnerMoodContent}>
+            <View style={styles.partnerMoodRow}>
+              <AnimatedGifEmoji emoji={partnerMood} size={32} style={styles.partnerEmojiSpacing} />
+              <Text style={styles.partnerMoodValue}>{partnerMood}</Text>
+            </View>
+            <View style={styles.heartGlowIcon}>
+              <Ionicons name="sparkles" size={14} color="#FF6575" />
+            </View>
           </View>
         </View>
-      </View>
+      ) : null}
 
       {/* Horizontal Mood Selector for User */}
       <View style={styles.selectorHeader}>
