@@ -18,6 +18,7 @@ import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
 import FallingHeartsBackground from './FallingHeartsBackground';
 import DoodleCanvas from './DoodleCanvas';
+import AnimatedGifEmoji from './AnimatedGifEmoji';
 import StorageService, {
   CoupleProfile,
   EphemeralSnap,
@@ -666,7 +667,11 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                     onPress={() => handleSendNudge(item)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.nudgeEmoji}>{item.emoji}</Text>
+                    <AnimatedGifEmoji
+                      emoji={item.emoji}
+                      size={44}
+                      style={styles.nudgeEmojiContainer}
+                    />
                     <Text style={styles.nudgeTitle}>{item.title}</Text>
                   </TouchableOpacity>
                 ))}
@@ -1207,9 +1212,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.92)',
   },
-  nudgeEmoji: {
-    fontSize: 26,
-    marginBottom: 4,
+  nudgeEmojiContainer: {
+    marginBottom: 6,
   },
   nudgeTitle: {
     fontFamily: AppFonts.title,

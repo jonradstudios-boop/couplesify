@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
+import AnimatedGifEmoji from './AnimatedGifEmoji';
 
 interface GameTileProps {
   title: string;
@@ -43,7 +44,7 @@ export const GameTile: React.FC<GameTileProps> = ({
       )}
 
       <View style={styles.emojiCircle}>
-        <Text style={styles.emojiText}>{emoji}</Text>
+        <AnimatedGifEmoji emoji={emoji} size={32} />
       </View>
 
       <Text style={styles.titleText}>{title}</Text>

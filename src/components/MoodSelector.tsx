@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
+import AnimatedGifEmoji from './AnimatedGifEmoji';
 
 export interface MoodOption {
   id: string;
@@ -52,7 +53,10 @@ export const MoodSelector: React.FC<MoodSelectorProps> = ({
           <Text style={styles.partnerLabel}>{partnerName}'s Mood Today</Text>
         </View>
         <View style={styles.partnerMoodContent}>
-          <Text style={styles.partnerMoodValue}>{partnerMood}</Text>
+          <View style={styles.partnerMoodRow}>
+            <AnimatedGifEmoji emoji={partnerMood} size={32} style={styles.partnerEmojiSpacing} />
+            <Text style={styles.partnerMoodValue}>{partnerMood}</Text>
+          </View>
           <View style={styles.heartGlowIcon}>
             <Ionicons name="sparkles" size={14} color="#FF6575" />
           </View>
@@ -83,7 +87,12 @@ export const MoodSelector: React.FC<MoodSelectorProps> = ({
               onPress={() => handleMoodPress(item)}
               activeOpacity={0.8}
             >
-              <Text style={styles.moodEmoji}>{item.emoji}</Text>
+              <AnimatedGifEmoji
+                emoji={item.emoji}
+                size={38}
+                isSelected={isSelected}
+                style={styles.moodEmojiContainer}
+              />
               <Text
                 style={[
                   styles.moodLabel,
@@ -143,6 +152,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  partnerMoodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  partnerEmojiSpacing: {
+    marginRight: 10,
+  },
   partnerMoodValue: {
     fontSize: 18,
     fontWeight: '800',
@@ -200,9 +216,8 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  moodEmoji: {
-    fontSize: 26,
-    marginBottom: 4,
+  moodEmojiContainer: {
+    marginBottom: 6,
   },
   moodLabel: {
     fontSize: 12,
