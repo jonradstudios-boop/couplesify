@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "Couplesify",
+    "slug": "couplesify",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "couplesify",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#FCE8EC",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.couplesify.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Couplesify needs access to your camera so you can take memories together.",
+        "NSPhotoLibraryUsageDescription": "Couplesify needs access to your photos to share romantic memories in your scrapbook.",
+        "NSMicrophoneUsageDescription": "Couplesify needs microphone access to record sweet voice notes for your partner."
+      }
+    },
+    "android": {
+      "package": "com.couplesify.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#FCE8EC",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET",
+        "android.permission.VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}

@@ -1,0 +1,83 @@
+import { StyleSheet, ViewStyle } from 'react-native';
+import AppColors from './AppColors';
+
+export const AppTheme = {
+  colors: AppColors,
+  radius: {
+    sm: 12,
+    md: 18,
+    lg: 24,
+    xl: 28,
+    full: 9999,
+  },
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 16,
+    lg: 24,
+    xl: 32,
+  },
+  cards: StyleSheet.create({
+    base: {
+      backgroundColor: AppColors.surface,
+      borderRadius: 26,
+      padding: 18,
+      shadowColor: '#E297A5',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.16,
+      shadowRadius: 16,
+      elevation: 4,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.9)',
+    } as ViewStyle,
+    frosted: {
+      backgroundColor: AppColors.surfaceFrosted,
+      borderRadius: 26,
+      padding: 18,
+      shadowColor: '#E297A5',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 14,
+      elevation: 3,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.75)',
+    } as ViewStyle,
+    clay: {
+      backgroundColor: AppColors.surface,
+      borderRadius: 28,
+      padding: 20,
+      shadowColor: '#F5BAC6',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.22,
+      shadowRadius: 18,
+      elevation: 5,
+      borderWidth: 1.5,
+      borderColor: 'rgba(255, 255, 255, 0.95)',
+    } as ViewStyle,
+    pillButton: {
+      backgroundColor: AppColors.primary,
+      borderRadius: 9999,
+      paddingVertical: 14,
+      paddingHorizontal: 24,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: AppColors.primary,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      elevation: 6,
+    } as ViewStyle,
+    softButton: {
+      backgroundColor: AppColors.primarySoft,
+      borderRadius: 9999,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    } as ViewStyle,
+  }),
+};
+
+export default AppTheme;
