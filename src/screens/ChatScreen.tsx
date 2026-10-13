@@ -19,6 +19,8 @@ import AppFonts from '../theme/AppFonts';
 import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import StorageService, { ChatMessage, CoupleProfile } from '../services/StorageService';
 import RealtimeService from '../services/RealtimeService';
+import FirestoreService from '../services/FirestoreService';
+import AuthService from '../services/AuthService';
 
 interface ChatScreenProps {
   onOpenPairing: () => void;
@@ -39,11 +41,48 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
   }, [profile?.partnerName]);
 
   useEffect(() => {
+    let unsubFirestoreChat = () => {};
+
     const loadChat = async () => {
       const prof = await StorageService.getProfile();
-      const msgs = await StorageService.getMessages();
+      const currentUser = await AuthService.getCurrentUser();
       setProfile(prof);
+
+      // Local cache first for instant render
+      const msgs = await StorageService.getMessages();
       setMessages(msgs);
+
+      // Fetch persistent cloud messages from Firestore: `couples/{inviteCode}/messages`
+      if (prof.inviteCode) {
+        try {
+          const cloudMsgs = await FirestoreService.fetchChatMessages(
+            prof.inviteCode,
+            currentUser?.uid
+          );
+          if (cloudMsgs && cloudMsgs.length > 0) {
+            setMessages(cloudMsgs);
+            await StorageService.saveMessages(cloudMsgs);
+          }
+        } catch (err) {
+          console.warn('Cloud chat fetch notice:', err);
+        }
+
+        // Real-time Firestore subscription
+        unsubFirestoreChat = FirestoreService.subscribeToChatMessages(
+          prof.inviteCode,
+          currentUser?.uid,
+          (cloudList) => {
+            if (cloudList && cloudList.length > 0) {
+              setMessages(cloudList);
+              StorageService.saveMessages(cloudList);
+              setTimeout(() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+              }, 100);
+            }
+          }
+        );
+      }
+
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 300);
@@ -51,7 +90,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
 
     loadChat();
 
-    // Listen to real-time incoming messages
+    // Listen to real-time incoming broadcast messages
     const unsubMsg = RealtimeService.on('message', (msg: ChatMessage) => {
       setMessages((prev) => [...prev, msg]);
       scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -71,6 +110,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
     });
 
     return () => {
+      unsubFirestoreChat();
       unsubMsg();
       unsubNudge();
     };
@@ -102,36 +142,44 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
     setInputText('');
     scrollToBottom();
 
-    // Simulate partner typing response after user sends message
-    setTimeout(() => {
-      setIsPartnerTyping(true);
-      scrollToBottom();
-      setTimeout(async () => {
-        setIsPartnerTyping(false);
-        const partnerReplies = [
-          'Aww love you so much sweetheart! 🥰',
-          'Counting down the minutes until I see you today! 💕',
-          'You just made my whole day brighter! ✨',
-          'Sending you the warmest biggest hug right now! 🤗',
-        ];
-        const randomReply = partnerReplies[Math.floor(Math.random() * partnerReplies.length)];
-        const replyMsg: ChatMessage = {
-          id: `msg-${Date.now()}`,
-          sender: 'partner',
-          type: 'text',
-          text: randomReply,
-          timestamp: Date.now(),
-          status: 'read',
-        };
-        const withReply = [...updated, replyMsg];
-        setMessages(withReply);
-        await StorageService.saveMessages(withReply);
+    // Persist to Cloud Firestore
+    const currentUser = await AuthService.getCurrentUser();
+    if (profile?.inviteCode) {
+      FirestoreService.sendChatMessage(profile.inviteCode, newMsg, currentUser?.uid);
+    }
+
+    // If in solo preview mode (not paired), simulate partner reply
+    if (!profile?.isPaired) {
+      setTimeout(() => {
+        setIsPartnerTyping(true);
         scrollToBottom();
-        try {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch {}
-      }, 2000);
-    }, 1200);
+        setTimeout(async () => {
+          setIsPartnerTyping(false);
+          const partnerReplies = [
+            'Aww love you so much sweetheart! 🥰',
+            'Counting down the minutes until I see you today! 💕',
+            'You just made my whole day brighter! ✨',
+            'Sending you the warmest biggest hug right now! 🤗',
+          ];
+          const randomReply = partnerReplies[Math.floor(Math.random() * partnerReplies.length)];
+          const replyMsg: ChatMessage = {
+            id: `msg-${Date.now()}`,
+            sender: 'partner',
+            type: 'text',
+            text: randomReply,
+            timestamp: Date.now(),
+            status: 'read',
+          };
+          const withReply = [...updated, replyMsg];
+          setMessages(withReply);
+          await StorageService.saveMessages(withReply);
+          scrollToBottom();
+          try {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          } catch {}
+        }, 2000);
+      }, 1200);
+    }
   };
 
   const handleSendVoiceNote = async () => {
@@ -151,6 +199,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
     await StorageService.saveMessages(updated);
     await RealtimeService.broadcastMessage(voiceMsg);
     scrollToBottom();
+
+    const currentUser = await AuthService.getCurrentUser();
+    if (profile?.inviteCode) {
+      FirestoreService.sendChatMessage(profile.inviteCode, voiceMsg, currentUser?.uid);
+    }
   };
 
   const toggleVoicePlay = (id: string) => {

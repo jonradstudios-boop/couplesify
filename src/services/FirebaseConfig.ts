@@ -14,12 +14,12 @@ import { Platform } from 'react-native';
  * You can provide your Firebase Web API key below or update it anytime!
  */
 export const FIREBASE_CLIENT_CONFIG = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCouplesify-LiveClientAppKey9805b',
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCOxHP1EBuIW0D-nEk1WKgmVcM8zwowc2I',
   authDomain: 'couplesify-9805b.firebaseapp.com',
   projectId: 'couplesify-9805b',
   storageBucket: 'couplesify-9805b.firebasestorage.app',
-  messagingSenderId: '112488035535',
-  appId: '1:112488035535:web:couplesify-client-app-9805b',
+  messagingSenderId: '569443926944',
+  appId: '1:569443926944:web:9f41ea7f5b1db1a6d55ac5',
 };
 
 let app: FirebaseApp | null = null;

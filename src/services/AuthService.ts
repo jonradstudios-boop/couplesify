@@ -6,7 +6,7 @@ import {
 } from 'firebase/auth';
 import { auth, isInitialized } from './FirebaseConfig';
 import StorageService, { CoupleProfile } from './StorageService';
-import FirestoreService from './FirestoreService';
+import FirestoreService, { FirestorePartnerData } from './FirestoreService';
 
 export interface UserAccount {
   uid: string;
@@ -16,6 +16,7 @@ export interface UserAccount {
   avatarUri?: string;
   inviteCode: string;
   partnerName: string;
+  partnerAvatar?: string;
   anniversaryDate: string;
   isPaired: boolean;
   createdAt: number;
@@ -65,6 +66,7 @@ export const AuthService = {
 
   /**
    * Log in with Email and Password
+   * Automatically restores couple data, messages, and memories from Firestore!
    */
   async login(
     email: string,
@@ -78,62 +80,110 @@ export const AuthService = {
     }
 
     try {
-      // 1. Attempt Firebase Auth if initialized
-      let firebaseUid = `user-${Date.now()}`;
-      if (isInitialized && auth) {
-        try {
-          const userCred = await signInWithEmailAndPassword(auth, trimmedEmail, trimmedPass);
-          firebaseUid = userCred.user.uid;
-        } catch (firebaseErr: any) {
-          // If offline or client API key pending, log notice and proceed with local profile
-          console.warn('Firebase login notice:', firebaseErr?.message);
-        }
-      }
-
-      // 2. Fetch existing stored user profile or create active session
-      let existingUser = await this.getCurrentUser();
-      const profile = await StorageService.getProfile();
-
-      if (!existingUser) {
-        existingUser = {
-          uid: firebaseUid,
-          email: trimmedEmail,
-          userName: profile.userName || 'You',
-          gender: 'male',
-          avatarUri: profile.userAvatar,
-          inviteCode: profile.inviteCode || 'PAIR-7729',
-          partnerName: profile.partnerName || 'Partner',
-          anniversaryDate: profile.anniversaryDate || new Date().toISOString().split('T')[0],
-          isPaired: profile.isPaired || false,
-          createdAt: Date.now(),
+      if (!isInitialized || !auth) {
+        return {
+          success: false,
+          error: 'Firebase service is initializing. Please try again.',
         };
       }
 
-      await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(existingUser));
+      // 1. Firebase Auth Sign In
+      let firebaseUid: string;
+      try {
+        const userCred = await signInWithEmailAndPassword(auth, trimmedEmail, trimmedPass);
+        firebaseUid = userCred.user.uid;
+      } catch (authErr: any) {
+        const code = authErr?.code || '';
+        if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
+          return { success: false, error: 'Incorrect email or password. Please verify.' };
+        } else if (code === 'auth/user-not-found') {
+          return { success: false, error: 'No account found with this email. Please register.' };
+        } else if (code === 'auth/invalid-email') {
+          return { success: false, error: 'Please enter a valid email address.' };
+        }
+        return { success: false, error: authErr?.message || 'Login failed.' };
+      }
+
+      // 2. Fetch User Profile from Firestore: `users/{firebaseUid}`
+      let userDoc = await FirestoreService.getUserDoc(firebaseUid);
+      let inviteCode = userDoc?.inviteCode || `PAIR-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      // 3. Sync from Couple Room: `couples/{inviteCode}`
+      let cloudProfile = await FirestoreService.fetchCloudProfile(inviteCode, firebaseUid);
+
+      const resolvedUserName = userDoc?.userName || cloudProfile?.userName || trimmedEmail.split('@')[0];
+      const resolvedPartnerName = userDoc?.partnerName || cloudProfile?.partnerName || 'Partner';
+      const resolvedUserAvatar = userDoc?.avatarUri || cloudProfile?.userAvatar || '';
+      const resolvedPartnerAvatar = userDoc?.partnerAvatar || cloudProfile?.partnerAvatar || '';
+      const resolvedAnniversary = userDoc?.anniversaryDate || cloudProfile?.anniversaryDate || new Date().toISOString().split('T')[0];
+      const resolvedIsPaired = !!(userDoc?.isPaired || cloudProfile?.isPaired);
+
+      const activeUser: UserAccount = {
+        uid: firebaseUid,
+        email: trimmedEmail,
+        userName: resolvedUserName,
+        gender: userDoc?.gender || 'male',
+        avatarUri: resolvedUserAvatar,
+        inviteCode,
+        partnerName: resolvedPartnerName,
+        partnerAvatar: resolvedPartnerAvatar,
+        anniversaryDate: resolvedAnniversary,
+        isPaired: resolvedIsPaired,
+        createdAt: userDoc?.createdAt || Date.now(),
+      };
+
+      // 4. Update Local Profile Storage
+      const localProfile: CoupleProfile = {
+        userName: activeUser.userName,
+        partnerName: activeUser.partnerName,
+        userAvatar: activeUser.avatarUri || '',
+        partnerAvatar: activeUser.partnerAvatar || '',
+        anniversaryDate: activeUser.anniversaryDate,
+        inviteCode: activeUser.inviteCode,
+        isPaired: activeUser.isPaired,
+        partnerOnline: true,
+      };
+      await StorageService.saveProfile(localProfile);
+
+      // 5. Restore Persistent Messages, Memories, and Letters from Firestore
+      try {
+        const cloudMessages = await FirestoreService.fetchChatMessages(inviteCode, firebaseUid);
+        if (cloudMessages && cloudMessages.length > 0) {
+          await StorageService.saveMessages(cloudMessages);
+        }
+
+        const cloudMemories = await FirestoreService.fetchMemories(inviteCode);
+        if (cloudMemories && cloudMemories.length > 0) {
+          await StorageService.saveMemories(cloudMemories);
+        }
+
+        const cloudLetters = await FirestoreService.fetchLetters(inviteCode);
+        if (cloudLetters && cloudLetters.length > 0) {
+          await StorageService.saveLetters(cloudLetters);
+        }
+
+        const cloudPages = await FirestoreService.fetchScrapbookPages(inviteCode);
+        if (cloudPages && cloudPages.length > 0) {
+          await StorageService.saveScrapbookPages(cloudPages);
+        }
+      } catch (syncErr) {
+        console.warn('Sync on login warning:', syncErr);
+      }
+
+      // 6. Save active session
+      await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(activeUser));
       await AsyncStorage.setItem(STORAGE_KEYS.AUTH_SESSION, 'true');
 
-      // Sync with Firestore in background
-      FirestoreService.syncProfileToCloud({
-        userName: existingUser.userName,
-        partnerName: existingUser.partnerName,
-        userAvatar: existingUser.avatarUri || '',
-        partnerAvatar: '',
-        anniversaryDate: existingUser.anniversaryDate,
-        inviteCode: existingUser.inviteCode,
-        isPaired: existingUser.isPaired,
-        partnerOnline: true,
-      });
-
-      return { success: true, user: existingUser };
+      return { success: true, user: activeUser };
     } catch (err: any) {
       return { success: false, error: err?.message || 'Login failed. Please check credentials.' };
     }
   },
 
   /**
-   * Register New Account with Gender-Specific Pairing Logic:
-   * - Male: Generates unique permanent couple code (PAIR-XXXX or custom)
-   * - Female: Links via partner's existing code
+   * Register New Account with Full Firestore Synchronization:
+   * - Male: Generates unique couple code & initializes couple room in Firestore
+   * - Female: Links via partner's existing code in Firestore
    */
   async register(
     payload: RegisterPayload
@@ -149,26 +199,59 @@ export const AuthService = {
     }
 
     try {
-      let firebaseUid = `user-${Date.now()}`;
-      if (isInitialized && auth) {
-        try {
-          const userCred = await createUserWithEmailAndPassword(auth, trimmedEmail, trimmedPass);
-          firebaseUid = userCred.user.uid;
-        } catch (firebaseErr: any) {
-          console.warn('Firebase registration notice:', firebaseErr?.message);
-        }
+      if (!isInitialized || !auth) {
+        return {
+          success: false,
+          error: 'Firebase service is initializing. Please try again.',
+        };
       }
 
-      // Determine pairing code based on gender
+      // 1. Create Firebase Auth User
+      let firebaseUid: string;
+      try {
+        const userCred = await createUserWithEmailAndPassword(auth, trimmedEmail, trimmedPass);
+        firebaseUid = userCred.user.uid;
+      } catch (authErr: any) {
+        const code = authErr?.code || '';
+        if (code === 'auth/email-already-in-use') {
+          return { success: false, error: 'This email is already registered. Please log in.' };
+        } else if (code === 'auth/weak-password') {
+          return { success: false, error: 'Password is too weak. Please use at least 6 characters.' };
+        } else if (code === 'auth/invalid-email') {
+          return { success: false, error: 'Please provide a valid email address.' };
+        }
+        return { success: false, error: authErr?.message || 'Registration failed.' };
+      }
+
+      // 2. Gender-Specific Pairing Logic
       let finalInviteCode: string;
       let isPaired = false;
+      let partnerName = payload.partnerName?.trim() || 'Partner';
+      let partnerAvatar = '';
+
+      const partnerData: FirestorePartnerData = {
+        uid: firebaseUid,
+        name: payload.userName.trim() || (payload.gender === 'male' ? 'Him' : 'Her'),
+        gender: payload.gender,
+        email: trimmedEmail,
+        avatarUri: payload.avatarUri || '',
+        online: true,
+        lastActive: Date.now(),
+      };
 
       if (payload.gender === 'male') {
         // MALE GENERATES CODE
         const custom = payload.customCode?.trim().toUpperCase();
         finalInviteCode = custom || `PAIR-${Math.floor(1000 + Math.random() * 9000)}`;
+
+        // Create the couple room in Firestore
+        await FirestoreService.createCoupleRoom(
+          finalInviteCode,
+          partnerData,
+          payload.anniversaryDate?.trim() || '2024-05-18'
+        );
       } else {
-        // FEMALE ENTERS PARTNER CODE TO LINK
+        // FEMALE LINKS VIA PARTNER'S CODE
         const partnerCode = payload.partnerCode?.trim().toUpperCase();
         if (!partnerCode) {
           return {
@@ -176,42 +259,56 @@ export const AuthService = {
             error: "Please enter your partner's code to link your account.",
           };
         }
+
+        // Link with Firestore couple room
+        const linkResult = await FirestoreService.joinCoupleRoom(partnerCode, partnerData);
+        if (!linkResult.success) {
+          return {
+            success: false,
+            error: linkResult.error || `Code "${partnerCode}" not found. Please verify with your partner.`,
+          };
+        }
+
         finalInviteCode = partnerCode;
         isPaired = true;
+        if (linkResult.partner1) {
+          partnerName = linkResult.partner1.name;
+          partnerAvatar = linkResult.partner1.avatarUri || '';
+        }
       }
 
+      // 3. Save User Document in Firestore
       const newUser: UserAccount = {
         uid: firebaseUid,
         email: trimmedEmail,
-        userName: payload.userName.trim() || (payload.gender === 'male' ? 'Him' : 'Her'),
+        userName: partnerData.name,
         gender: payload.gender,
-        avatarUri: payload.avatarUri || '',
+        avatarUri: partnerData.avatarUri || '',
         inviteCode: finalInviteCode,
-        partnerName: payload.partnerName?.trim() || 'Partner',
-        anniversaryDate: payload.anniversaryDate?.trim() || new Date().toISOString().split('T')[0],
+        partnerName,
+        partnerAvatar,
+        anniversaryDate: payload.anniversaryDate?.trim() || '2024-05-18',
         isPaired,
         createdAt: Date.now(),
       };
 
-      // Save user session
+      await FirestoreService.saveUserDoc(newUser);
+
+      // 4. Update Local Storage & Couple Profile
       await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(newUser));
       await AsyncStorage.setItem(STORAGE_KEYS.AUTH_SESSION, 'true');
 
-      // Update CoupleProfile in StorageService
       const profile: CoupleProfile = {
         userName: newUser.userName,
         partnerName: newUser.partnerName,
         userAvatar: newUser.avatarUri || '',
-        partnerAvatar: '',
+        partnerAvatar: newUser.partnerAvatar || '',
         anniversaryDate: newUser.anniversaryDate,
         inviteCode: newUser.inviteCode,
         isPaired: newUser.isPaired,
         partnerOnline: true,
       };
       await StorageService.saveProfile(profile);
-
-      // Cloud Firestore Sync
-      FirestoreService.syncProfileToCloud(profile);
 
       return { success: true, user: newUser };
     } catch (err: any) {
@@ -220,7 +317,7 @@ export const AuthService = {
   },
 
   /**
-   * Log Out
+   * Log Out and clear session
    */
   async logout(): Promise<void> {
     try {
@@ -229,6 +326,7 @@ export const AuthService = {
       }
     } catch {}
     await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_SESSION);
+    await AsyncStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
   },
 };
 

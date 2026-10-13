@@ -21,18 +21,12 @@ import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
 import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import AuthService, { UserAccount } from '../services/AuthService';
+import FirestoreService from '../services/FirestoreService';
 
 interface AuthScreenProps {
   onAuthSuccess: (user: UserAccount) => void;
   onSkip?: () => void;
 }
-
-const DEFAULT_AVATARS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=80',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&q=80',
-];
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onSkip }) => {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -47,7 +41,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onSkip })
   // Register Fields
   const [userName, setUserName] = useState('');
   const [gender, setGender] = useState<'male' | 'female'>('male');
-  const [avatarUri, setAvatarUri] = useState<string>(DEFAULT_AVATARS[0]);
+  // Start with empty avatar - do not prefill with stored/cached pictures
+  const [avatarUri, setAvatarUri] = useState<string>('');
   const [partnerName, setPartnerName] = useState('');
   const [anniversaryDate, setAnniversaryDate] = useState('2024-05-18');
 
@@ -60,6 +55,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onSkip })
 
   // Female: Enters/pastes partner's code
   const [femalePartnerCodeInput, setFemalePartnerCodeInput] = useState('');
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const [codeVerificationMsg, setCodeVerificationMsg] = useState<{
+    success: boolean;
+    text: string;
+  } | null>(null);
 
   const handlePickAvatarImage = async () => {
     try {
@@ -90,12 +90,46 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onSkip })
     setTimeout(() => setCodeCopied(false), 2000);
   };
 
+  const handleVerifyFemaleCode = async (codeToVerify: string) => {
+    const clean = codeToVerify.trim().toUpperCase();
+    if (!clean) return;
+    setIsVerifyingCode(true);
+    setCodeVerificationMsg(null);
+    try {
+      const room = await FirestoreService.getCoupleRoom(clean);
+      setIsVerifyingCode(false);
+      if (room && room.partner1) {
+        setPartnerName(room.partner1.name);
+        if (room.anniversaryDate) {
+          setAnniversaryDate(room.anniversaryDate);
+        }
+        setCodeVerificationMsg({
+          success: true,
+          text: `Found ${room.partner1.name}'s room! 💕 Ready to link.`,
+        });
+      } else {
+        setCodeVerificationMsg({
+          success: false,
+          text: `Code "${clean}" not found. Please verify with your partner.`,
+        });
+      }
+    } catch {
+      setIsVerifyingCode(false);
+      setCodeVerificationMsg({
+        success: false,
+        text: 'Network error checking code. Please try again.',
+      });
+    }
+  };
+
   const handlePasteFemaleCode = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const pasted = await Clipboard.getStringAsync();
       if (pasted) {
-        setFemalePartnerCodeInput(pasted.trim().toUpperCase());
+        const clean = pasted.trim().toUpperCase();
+        setFemalePartnerCodeInput(clean);
+        handleVerifyFemaleCode(clean);
       }
     } catch {}
   };
@@ -350,10 +384,24 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onSkip })
               <Text style={[styles.sectionHeaderTitle, { marginTop: 18 }]}>2. You & Your Avatar</Text>
 
               <View style={styles.avatarSelectionRow}>
-                <TouchableOpacity style={styles.avatarCircle} onPress={handlePickAvatarImage} activeOpacity={0.8}>
-                  <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                <TouchableOpacity
+                  style={[styles.avatarCircle, !avatarUri && styles.avatarCircleEmpty]}
+                  onPress={handlePickAvatarImage}
+                  activeOpacity={0.8}
+                >
+                  {avatarUri ? (
+                    <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                  ) : (
+                    <View style={styles.avatarPlaceholder}>
+                      <Ionicons
+                        name={gender === 'male' ? 'person' : 'person'}
+                        size={28}
+                        color="#FF6575"
+                      />
+                    </View>
+                  )}
                   <View style={styles.avatarCameraBadge}>
-                    <Feather name="camera" size={12} color="#FFFFFF" />
+                    <Feather name={avatarUri ? 'edit-2' : 'camera'} size={12} color="#FFFFFF" />
                   </View>
                 </TouchableOpacity>
 
@@ -368,6 +416,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onSkip })
                       onChangeText={setUserName}
                     />
                   </View>
+                  {avatarUri ? (
+                    <TouchableOpacity
+                      onPress={() => setAvatarUri('')}
+                      style={{ marginTop: 4 }}
+                    >
+                      <Text style={{ fontSize: 11, color: '#E04859', fontWeight: '600' }}>
+                        ✕ Remove Photo
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={{ fontSize: 11, color: AppColors.textSecondary, marginTop: 4 }}>
+                      Tap circle to pick photo (optional)
+                    </Text>
+                  )}
                 </View>
               </View>
 
@@ -445,7 +507,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onSkip })
                     <Text style={styles.femaleLinkTitle}>FEMALE PARTNER: LINK PARTNER'S CODE</Text>
                   </View>
                   <Text style={styles.femaleLinkDescription}>
-                    Paste the 6-character code created by your male partner to link together.
+                    Paste the pairing code created by your male partner to link together.
                   </Text>
 
                   <View style={styles.femaleInputRow}>
@@ -454,7 +516,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onSkip })
                       placeholder="e.g. PAIR-7729"
                       placeholderTextColor="#B9A8C2"
                       value={femalePartnerCodeInput}
-                      onChangeText={setFemalePartnerCodeInput}
+                      onChangeText={(val) => {
+                        const clean = val.toUpperCase();
+                        setFemalePartnerCodeInput(clean);
+                        if (codeVerificationMsg) setCodeVerificationMsg(null);
+                      }}
                       autoCapitalize="characters"
                     />
                     <TouchableOpacity
@@ -465,7 +531,46 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onSkip })
                       <Ionicons name="clipboard-outline" size={14} color="#8F78D2" />
                       <Text style={styles.femalePasteBtnText}>Paste</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.femalePasteBtn, { backgroundColor: '#8F78D2', borderColor: '#8F78D2' }]}
+                      onPress={() => handleVerifyFemaleCode(femalePartnerCodeInput)}
+                      disabled={isVerifyingCode || !femalePartnerCodeInput.trim()}
+                      activeOpacity={0.75}
+                    >
+                      {isVerifyingCode ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={[styles.femalePasteBtnText, { color: '#FFFFFF' }]}>Verify</Text>
+                      )}
+                    </TouchableOpacity>
                   </View>
+
+                  {codeVerificationMsg && (
+                    <View
+                      style={[
+                        styles.codeVerifyBadge,
+                        codeVerificationMsg.success
+                          ? styles.codeVerifyBadgeSuccess
+                          : styles.codeVerifyBadgeError,
+                      ]}
+                    >
+                      <Ionicons
+                        name={codeVerificationMsg.success ? 'checkmark-circle' : 'alert-circle'}
+                        size={14}
+                        color={codeVerificationMsg.success ? '#16A34A' : '#DC2626'}
+                      />
+                      <Text
+                        style={[
+                          styles.codeVerifyText,
+                          codeVerificationMsg.success
+                            ? styles.codeVerifyTextSuccess
+                            : styles.codeVerifyTextError,
+                        ]}
+                      >
+                        {codeVerificationMsg.text}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
 
@@ -673,6 +778,19 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: AppColors.primary,
   },
+  avatarCircleEmpty: {
+    backgroundColor: '#FFE8EC',
+    borderStyle: 'dashed',
+    borderColor: '#FF8A96',
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF0F3',
+  },
   avatarImage: {
     width: '100%',
     height: '100%',
@@ -837,6 +955,36 @@ const styles = StyleSheet.create({
     color: '#7C3AED',
     fontWeight: '800',
     fontSize: 12.5,
+  },
+  codeVerifyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginTop: 8,
+    gap: 6,
+  },
+  codeVerifyBadgeSuccess: {
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+  },
+  codeVerifyBadgeError: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
+  codeVerifyText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    flex: 1,
+  },
+  codeVerifyTextSuccess: {
+    color: '#15803D',
+  },
+  codeVerifyTextError: {
+    color: '#B91C1C',
   },
   submitBtn: {
     flexDirection: 'row',

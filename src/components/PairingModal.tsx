@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -14,7 +15,9 @@ import * as Clipboard from 'expo-clipboard';
 import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
 import FallingHeartsBackground from './FallingHeartsBackground';
-import { CoupleProfile } from '../services/StorageService';
+import StorageService, { CoupleProfile } from '../services/StorageService';
+import FirestoreService from '../services/FirestoreService';
+import AuthService from '../services/AuthService';
 
 interface PairingModalProps {
   visible: boolean;
@@ -37,6 +40,8 @@ export const PairingModal: React.FC<PairingModalProps> = ({
   const [anniversaryDate, setAnniversaryDate] = useState(profile.anniversaryDate);
   const [copied, setCopied] = useState(false);
   const [pairSuccess, setPairSuccess] = useState(false);
+  const [pairError, setPairError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleCopyCode = async () => {
     try {
@@ -53,39 +58,79 @@ export const PairingModal: React.FC<PairingModalProps> = ({
       const str = await Clipboard.getStringAsync();
       if (str) {
         setPartnerCodeInput(str.trim().toUpperCase());
+        setPairError(null);
       }
     } catch {}
   };
 
-  const handlePairSubmit = () => {
-    if (!partnerCodeInput.trim()) return;
+  const handlePairSubmit = async () => {
+    const cleanCode = partnerCodeInput.trim().toUpperCase();
+    if (!cleanCode) return;
+    setIsLoading(true);
+    setPairError(null);
+
     try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {}
-    setPairSuccess(true);
-    setTimeout(() => {
-      setPairSuccess(false);
-      onSaveProfile({
+      const currentUser = await AuthService.getCurrentUser();
+      const res = await FirestoreService.joinCoupleRoom(cleanCode, {
+        uid: currentUser?.uid || `user-${Date.now()}`,
+        name: userName || currentUser?.userName || 'You',
+        gender: currentUser?.gender || 'female',
+        email: currentUser?.email || '',
+        avatarUri: profile.userAvatar,
+        online: true,
+        lastActive: Date.now(),
+      });
+
+      setIsLoading(false);
+      if (!res.success) {
+        setPairError(res.error || `Code "${cleanCode}" was not found.`);
+        return;
+      }
+
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+      setPairSuccess(true);
+
+      const updated: CoupleProfile = {
         ...profile,
         userName,
-        partnerName,
-        anniversaryDate,
+        partnerName: res.partner1?.name || partnerName,
+        partnerAvatar: res.partner1?.avatarUri || profile.partnerAvatar,
+        inviteCode: cleanCode,
+        anniversaryDate: res.partner1 ? anniversaryDate : anniversaryDate,
         isPaired: true,
-      });
-      onClose();
-    }, 1500);
+        partnerOnline: true,
+      };
+
+      onSaveProfile(updated);
+      await StorageService.saveProfile(updated);
+      await FirestoreService.syncProfileToCloud(updated, currentUser?.uid);
+
+      setTimeout(() => {
+        setPairSuccess(false);
+        onClose();
+      }, 1500);
+    } catch (err: any) {
+      setIsLoading(false);
+      setPairError(err?.message || 'Failed to link partner code.');
+    }
   };
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
-    onSaveProfile({
+    const updated: CoupleProfile = {
       ...profile,
       userName,
       partnerName,
       anniversaryDate,
-    });
+    };
+    onSaveProfile(updated);
+    await StorageService.saveProfile(updated);
+    const currentUser = await AuthService.getCurrentUser();
+    await FirestoreService.syncProfileToCloud(updated, currentUser?.uid);
     onClose();
   };
 
@@ -153,13 +198,25 @@ export const PairingModal: React.FC<PairingModalProps> = ({
                   <Text style={styles.pasteBtnText}>Paste</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.linkBtn}
+                  style={[styles.linkBtn, isLoading && { opacity: 0.8 }]}
                   onPress={handlePairSubmit}
+                  disabled={isLoading}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.linkBtnText}>Pair</Text>
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.linkBtnText}>Pair</Text>
+                  )}
                 </TouchableOpacity>
               </View>
+
+              {pairError && (
+                <View style={[styles.pairedBanner, { backgroundColor: '#FEE2E2' }]}>
+                  <Ionicons name="alert-circle" size={16} color="#DC2626" />
+                  <Text style={[styles.pairedBannerText, { color: '#DC2626' }]}>{pairError}</Text>
+                </View>
+              )}
 
               {pairSuccess && (
                 <View style={styles.pairedBanner}>

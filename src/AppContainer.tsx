@@ -12,6 +12,7 @@ import LoveNudgeModal from './components/LoveNudgeModal';
 import PairingModal from './components/PairingModal';
 import StorageService, { CoupleProfile } from './services/StorageService';
 import AuthService from './services/AuthService';
+import FirestoreService from './services/FirestoreService';
 import AppColors from './theme/AppColors';
 
 export const AppContainer: React.FC = () => {
@@ -25,15 +26,35 @@ export const AppContainer: React.FC = () => {
   const [profile, setProfile] = useState<CoupleProfile | null>(null);
 
   useEffect(() => {
-    checkAuthAndProfile();
-  }, []);
+    let unsubCouple: (() => void) | undefined;
 
-  const checkAuthAndProfile = async () => {
-    const loggedIn = await AuthService.isUserLoggedIn();
-    setIsAuthenticated(loggedIn);
-    const prof = await StorageService.getProfile();
-    setProfile(prof);
-  };
+    const setupAuthAndListener = async () => {
+      const loggedIn = await AuthService.isUserLoggedIn();
+      setIsAuthenticated(loggedIn);
+      const prof = await StorageService.getProfile();
+      setProfile(prof);
+
+      const currentUser = await AuthService.getCurrentUser();
+      if (prof?.inviteCode) {
+        unsubCouple = FirestoreService.subscribeToCoupleLiveUpdates(
+          prof.inviteCode,
+          currentUser?.uid,
+          (liveData) => {
+            if (liveData.profile) {
+              setProfile(liveData.profile);
+              StorageService.saveProfile(liveData.profile);
+            }
+          }
+        );
+      }
+    };
+
+    setupAuthAndListener();
+
+    return () => {
+      if (unsubCouple) unsubCouple();
+    };
+  }, [isAuthenticated]);
 
   const loadProfile = async () => {
     const prof = await StorageService.getProfile();
@@ -43,12 +64,17 @@ export const AppContainer: React.FC = () => {
   const handleSaveProfile = async (updated: CoupleProfile) => {
     setProfile(updated);
     await StorageService.saveProfile(updated);
+    const currentUser = await AuthService.getCurrentUser();
+    await FirestoreService.syncProfileToCloud(updated, currentUser?.uid);
   };
 
   const handleLogout = async () => {
     await AuthService.logout();
     setIsAuthenticated(false);
     setIsPairingModalOpen(false);
+    // Reset local profile so next sign in doesn't show old cached profile
+    const defaultProfile = await StorageService.getProfile();
+    setProfile(defaultProfile);
   };
 
   // 1. Show Uber/Ola-style luxury app opening animation on startup

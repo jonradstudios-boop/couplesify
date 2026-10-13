@@ -26,6 +26,7 @@ import StorageService, {
   LetterItem,
   CoupleProfile,
 } from '../services/StorageService';
+import FirestoreService from '../services/FirestoreService';
 
 const MEMORY_TAGS = ['Date Night', 'Anniversary', 'Road Trip', 'Cozy Home', 'Milestone'];
 
@@ -47,15 +48,50 @@ export const MemoryScreen: React.FC = () => {
 
   useEffect(() => {
     loadData();
+
+    let unsubMems = () => {};
+
+    StorageService.getProfile().then((prof) => {
+      if (prof.inviteCode) {
+        unsubMems = FirestoreService.subscribeToMemories(prof.inviteCode, (cloudMems) => {
+          if (cloudMems && cloudMems.length > 0) {
+            setMemories(cloudMems);
+            StorageService.saveMemories(cloudMems);
+          }
+        });
+      }
+    });
+
+    return () => {
+      unsubMems();
+    };
   }, []);
 
   const loadData = async () => {
     const prof = await StorageService.getProfile();
+    setProfile(prof);
+
     const mems = await StorageService.getMemories();
     const lets = await StorageService.getLetters();
-    setProfile(prof);
     setMemories(mems);
     setLetters(lets);
+
+    if (prof.inviteCode) {
+      try {
+        const cloudMems = await FirestoreService.fetchMemories(prof.inviteCode);
+        if (cloudMems && cloudMems.length > 0) {
+          setMemories(cloudMems);
+          await StorageService.saveMemories(cloudMems);
+        }
+        const cloudLetters = await FirestoreService.fetchLetters(prof.inviteCode);
+        if (cloudLetters && cloudLetters.length > 0) {
+          setLetters(cloudLetters);
+          await StorageService.saveLetters(cloudLetters);
+        }
+      } catch (err) {
+        console.warn('Cloud memory load notice:', err);
+      }
+    }
   };
 
   const handlePickDeviceImage = async () => {
@@ -103,6 +139,9 @@ export const MemoryScreen: React.FC = () => {
     const updated = [newItem, ...memories];
     setMemories(updated);
     await StorageService.saveMemories(updated);
+    if (profile?.inviteCode) {
+      await FirestoreService.syncMemories(profile.inviteCode, updated);
+    }
     setNewCaption('');
     setSelectedPhotoUri(null);
     setIsUploadModalOpen(false);
@@ -132,6 +171,9 @@ export const MemoryScreen: React.FC = () => {
     const updated = [newLetter, ...letters];
     setLetters(updated);
     await StorageService.saveLetters(updated);
+    if (profile?.inviteCode) {
+      await FirestoreService.syncLetters(profile.inviteCode, updated);
+    }
     setNewLetterBody('');
     setIsLetterModalOpen(false);
   };
@@ -149,6 +191,9 @@ export const MemoryScreen: React.FC = () => {
     });
     setMemories(updated);
     await StorageService.saveMemories(updated);
+    if (profile?.inviteCode) {
+      await FirestoreService.syncMemories(profile.inviteCode, updated);
+    }
   };
 
   const handleDeleteMemory = async (id: string) => {
@@ -160,6 +205,9 @@ export const MemoryScreen: React.FC = () => {
       const updated = memories.filter((m) => m.id !== id);
       setMemories(updated);
       await StorageService.saveMemories(updated);
+      if (profile?.inviteCode) {
+        await FirestoreService.syncMemories(profile.inviteCode, updated);
+      }
     };
 
     if (Platform.OS === 'web') {
