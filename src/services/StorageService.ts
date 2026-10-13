@@ -103,10 +103,14 @@ export interface ScrapbookPageData {
   caption1?: string;
   caption2?: string;
   dateStr?: string;
+  paperTheme?: 'craft' | 'blush' | 'midnight' | 'ivory' | 'matcha';
+  sealIcon?: 'heart' | 'star' | 'butterfly' | 'sparkle' | 'rose';
+  salutation?: string;
+  signature?: string;
 }
 
 const STORAGE_KEYS = {
-  CLEAN_V3: '@couplesify_clean_v3',
+  CLEAN_V4: '@couplesify_clean_v4',
   PROFILE: '@couplesify_profile',
   USER_MOOD: '@couplesify_user_mood',
   PARTNER_MOOD: '@couplesify_partner_mood',
@@ -140,9 +144,9 @@ const DEFAULT_MESSAGES: ChatMessage[] = [];
 export const StorageService = {
   async ensureCleanState(): Promise<void> {
     try {
-      const isCleaned = await AsyncStorage.getItem(STORAGE_KEYS.CLEAN_V3);
+      const isCleaned = await AsyncStorage.getItem(STORAGE_KEYS.CLEAN_V4);
       if (!isCleaned) {
-        // Clear all previous dummy/mock data keys
+        // Clear all previous dummy/mock data keys including legacy scrapbook pages
         await AsyncStorage.multiRemove([
           STORAGE_KEYS.PROFILE,
           STORAGE_KEYS.USER_MOOD,
@@ -152,8 +156,9 @@ export const StorageService = {
           STORAGE_KEYS.MEMORIES,
           STORAGE_KEYS.LETTERS,
           STORAGE_KEYS.MESSAGES,
+          STORAGE_KEYS.SCRAPBOOK_PAGES,
         ]);
-        await AsyncStorage.setItem(STORAGE_KEYS.CLEAN_V3, 'true');
+        await AsyncStorage.setItem(STORAGE_KEYS.CLEAN_V4, 'true');
       }
     } catch {
       // safe fallback
@@ -202,8 +207,12 @@ export const StorageService = {
     }
   },
 
-  async saveSharedDoodle(doodle: SharedDoodle): Promise<void> {
-    await AsyncStorage.setItem(STORAGE_KEYS.SHARED_DOODLE, JSON.stringify(doodle));
+  async saveSharedDoodle(doodle: SharedDoodle | null): Promise<void> {
+    if (!doodle) {
+      await AsyncStorage.removeItem(STORAGE_KEYS.SHARED_DOODLE);
+    } else {
+      await AsyncStorage.setItem(STORAGE_KEYS.SHARED_DOODLE, JSON.stringify(doodle));
+    }
   },
 
   async getGoals(): Promise<CoupleGoal[]> {
@@ -310,7 +319,30 @@ export const StorageService = {
     await this.ensureCleanState();
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.SCRAPBOOK_PAGES);
-      return data ? JSON.parse(data) : DEFAULT_SCRAPBOOK_PAGES;
+      if (data) {
+        const parsed: ScrapbookPageData[] = JSON.parse(data);
+        // If stored pages contain legacy preset templates or unsplash images, purge them!
+        const hasLegacyDummy = parsed.some(
+          (p) =>
+            (p.photoUri1 && p.photoUri1.includes('unsplash.com')) ||
+            (p.photoUri2 && p.photoUri2.includes('unsplash.com')) ||
+            p.title === 'Our Sweet Journey' ||
+            p.title === 'Favorite Little Moments' ||
+            p.title === 'A Letter from My Heart' ||
+            p.title === 'Adventures with You' ||
+            p.title === 'You Give Me Butterflies' ||
+            p.title === 'Midnight Vows & Starlight'
+        );
+        if (hasLegacyDummy) {
+          await AsyncStorage.setItem(
+            STORAGE_KEYS.SCRAPBOOK_PAGES,
+            JSON.stringify(DEFAULT_SCRAPBOOK_PAGES)
+          );
+          return DEFAULT_SCRAPBOOK_PAGES;
+        }
+        return parsed.length > 0 ? parsed : DEFAULT_SCRAPBOOK_PAGES;
+      }
+      return DEFAULT_SCRAPBOOK_PAGES;
     } catch {
       return DEFAULT_SCRAPBOOK_PAGES;
     }
@@ -319,64 +351,31 @@ export const StorageService = {
   async saveScrapbookPages(pages: ScrapbookPageData[]): Promise<void> {
     await AsyncStorage.setItem(STORAGE_KEYS.SCRAPBOOK_PAGES, JSON.stringify(pages));
   },
+
+  async resetScrapbookPages(): Promise<ScrapbookPageData[]> {
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.SCRAPBOOK_PAGES,
+      JSON.stringify(DEFAULT_SCRAPBOOK_PAGES)
+    );
+    return DEFAULT_SCRAPBOOK_PAGES;
+  },
 };
 
+// Completely clean blank initial state with NO pre-filled dummy titles, stories, or images
 const DEFAULT_SCRAPBOOK_PAGES: ScrapbookPageData[] = [
   {
     id: 'page-1',
     templateType: 'milestone_cover',
-    title: 'Our Sweet Journey',
-    subtitle: 'Where Forever Began • Chapter 1',
-    bodyText: 'From the moment our eyes first met, the ordinary world turned magical. This scrapbook holds every breath and heartbeat we share.',
-    dateStr: 'Established Together',
-    photoUri1: 'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?w=800&auto=format&fit=crop&q=80',
-    caption1: 'The first chapter of us ✨',
-  },
-  {
-    id: 'page-2',
-    templateType: 'polaroid_collage',
-    title: 'Favorite Little Moments',
-    subtitle: 'Stolen glances & laughing out loud',
-    photoUri1: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=800&auto=format&fit=crop&q=80',
-    photoUri2: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80',
-    caption1: 'Golden hour warmth 🌅',
-    caption2: 'Your sweetest smile 💕',
-    bodyText: 'We don’t remember days, we remember moments that took our breath away.',
-  },
-  {
-    id: 'page-3',
-    templateType: 'handwritten_letter',
-    title: 'A Letter from My Heart',
-    subtitle: 'Written under soft candlelight 🕯️',
-    bodyText: 'My darling,\n\nI just wanted to remind you today of how deeply you are loved. Even in the quietest, most mundane moments — cooking dinner, holding hands in the car, catching each other’s eyes across the room — you are my home.\n\nThank you for loving me as I am.\n\nForever & always, Yours.',
-    dateStr: 'Love Note #1',
-  },
-  {
-    id: 'page-4',
-    templateType: 'adventure_ticket',
-    title: 'Adventures with You',
-    subtitle: 'Boarding Pass • Destination: Anywhere Together',
-    photoUri1: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&auto=format&fit=crop&q=80',
-    caption1: 'Chasing horizons hand-in-hand 🚗✨',
-    bodyText: 'Flight #LOVE-777. Gate: Eternity. Seat: Next to You. We have miles to travel and lifetimes to explore together.',
-  },
-  {
-    id: 'page-5',
-    templateType: 'butterfly_pressed',
-    title: 'You Give Me Butterflies',
-    subtitle: 'Botanical specimen of delicate feelings 🌸',
-    photoUri1: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=800&auto=format&fit=crop&q=80',
-    caption1: 'Every butterfly reminds me of you 🪶',
-    bodyText: 'Like delicate wings catching morning dew, my pulse quickens every time you whisper my name. You are my spring in every winter.',
-  },
-  {
-    id: 'page-6',
-    templateType: 'midnight_whispers',
-    title: 'Midnight Vows & Starlight',
-    subtitle: '3:00 AM conversations & future dreams 🌌',
-    photoUri1: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
-    caption1: 'Under a billion shining stars 💫',
-    bodyText: 'When the world falls asleep, it is just you and me. I promise to hold your hand through every high, every low, and every star in the night sky.',
+    title: '',
+    subtitle: '',
+    bodyText: '',
+    dateStr: '',
+    photoUri1: undefined,
+    photoUri2: undefined,
+    caption1: '',
+    caption2: '',
+    paperTheme: 'craft',
+    sealIcon: 'heart',
   },
 ];
 

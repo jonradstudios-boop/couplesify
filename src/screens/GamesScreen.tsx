@@ -11,6 +11,7 @@ import {
   Easing,
   Platform,
   TextInput,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,17 +24,60 @@ import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import StorageService, { CoupleGoal } from '../services/StorageService';
 import SpicyChiliTransition from '../components/SpicyChiliTransition';
 import SpicyGamesLounge from '../components/SpicyGamesLounge';
+import GameSyncService, { DuoRoomState, InGameInvite } from '../services/GameSyncService';
+import * as Clipboard from 'expo-clipboard';
+import {
+  MINI_GAME_TRUTHS,
+  MINI_GAME_DARES,
+  MINI_GAME_QUIZ_QUESTIONS,
+} from '../data/miniGamesData';
+import { SPICY_NHIE_PROMPTS } from '../data/spicyGamesData';
 
 type GamesViewMode = 'hub' | 'mini_games' | 'spicy_games';
 
-export const GamesScreen: React.FC = () => {
+export interface GamesScreenProps {
+  onSpicyModeChange?: (isSpicy: boolean) => void;
+}
+
+export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) => {
   const [viewMode, setViewMode] = useState<GamesViewMode>('hub');
   const [goals, setGoals] = useState<CoupleGoal[]>([]);
   const [activeGameModal, setActiveGameModal] = useState<string | null>(null);
 
+  // Duo Room & Partner Presence State
+  const [duoState, setDuoState] = useState<DuoRoomState | null>(null);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isPartnerConnected, setIsPartnerConnected] = useState(true);
+  const [inviteCopied, setInviteCopied] = useState(false);
+
+  // Dedicated Game Match Room Code & In-Game Invite States
+  const [gameCodeInput, setGameCodeInput] = useState('');
+  const [gameJoinStatus, setGameJoinStatus] = useState<string | null>(null);
+  const [pendingInvitePopup, setPendingInvitePopup] = useState<InGameInvite | null>(null);
+  const [inviteSentStatus, setInviteSentStatus] = useState<string | null>(null);
+
+  // Turn Shuffler State for Truth or Dare
+  const [todTurn, setTodTurn] = useState<'user' | 'partner'>('user');
+  const [isShufflingTurn, setIsShufflingTurn] = useState(false);
+
+  // Custom Prompt Creation State
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
+  const [customPromptInput, setCustomPromptInput] = useState('');
+  const [customPromptType, setCustomPromptType] = useState<'truth' | 'dare' | 'quiz'>('truth');
+  const [customTruths, setCustomTruths] = useState<string[]>([]);
+  const [customDares, setCustomDares] = useState<string[]>([]);
+
+  // Text Answer State for Truth or Dare
+  const [answerInputText, setAnswerInputText] = useState('');
+  const [savedAnswers, setSavedAnswers] = useState<Record<string, string>>({});
+  const [showAnswerInput, setShowAnswerInput] = useState(false);
+
+  // Duo Couple Quiz
+  const [partnerQuizAnswer, setPartnerQuizAnswer] = useState<number | null>(null);
+
   // Tic-Tac-Toe State
   const [tttBoard, setTttBoard] = useState<(string | null)[]>(Array(9).fill(null));
-  const [tttTurn, setTttTurn] = useState<'❤️' | '⭐'>('❤️');
+  const [tttTurn, setTttTurn] = useState<'X' | 'O'>('X');
   const [tttWinner, setTttWinner] = useState<string | null>(null);
 
   // Daily Quiz State
@@ -79,11 +123,212 @@ export const GamesScreen: React.FC = () => {
     if (prof?.userName) setUserName(prof.userName);
     const data = await StorageService.getGoals();
     setGoals(data);
+
+    const room = await GameSyncService.getDuoRoomState();
+    setDuoState(room);
+    setIsPartnerConnected(room.isPartnerConnected);
+
+    const customP = await GameSyncService.getCustomPrompts('tod');
+    setCustomTruths(customP.filter((p) => p.category === 'truth').map((p) => p.prompt));
+    setCustomDares(customP.filter((p) => p.category === 'dare').map((p) => p.prompt));
+  };
+
+  const handleTogglePartnerConnect = async () => {
+    const next = !isPartnerConnected;
+    setIsPartnerConnected(next);
+    await GameSyncService.setPartnerConnected(next);
+    try {
+      Haptics.notificationAsync(
+        next
+          ? Haptics.NotificationFeedbackType.Success
+          : Haptics.NotificationFeedbackType.Warning
+      );
+    } catch {}
+  };
+
+  const handleCopyGameCode = async () => {
+    const code = duoState?.gameRoomCode || 'GAME-7824';
+    await Clipboard.setStringAsync(code);
+    setInviteCopied(true);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+    setTimeout(() => setInviteCopied(false), 2500);
+  };
+
+  const handleGenerateNewGameCode = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+    const newCode = await GameSyncService.generateNewGameCode();
+    setDuoState((prev) => (prev ? { ...prev, gameRoomCode: newCode } : prev));
+    setGameJoinStatus(`Generated new game room code: ${newCode} 🎲`);
+    setTimeout(() => setGameJoinStatus(null), 3000);
+  };
+
+  const handlePasteGameCode = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const pasted = await Clipboard.getStringAsync();
+      if (pasted) {
+        setGameCodeInput(pasted.trim().toUpperCase());
+      }
+    } catch {}
+  };
+
+  const handleJoinGameRoom = async () => {
+    if (!gameCodeInput.trim()) {
+      setGameJoinStatus('Please enter or paste a match code!');
+      setTimeout(() => setGameJoinStatus(null), 2500);
+      return;
+    }
+    const res = await GameSyncService.joinRoomByCode(gameCodeInput);
+    if (res.success) {
+      setIsPartnerConnected(true);
+      setDuoState((prev) =>
+        prev
+          ? {
+              ...prev,
+              gameRoomCode: gameCodeInput.trim().toUpperCase(),
+              isPartnerConnected: true,
+            }
+          : prev
+      );
+      setGameJoinStatus(res.message);
+      setGameCodeInput('');
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+    } else {
+      setGameJoinStatus(res.message);
+    }
+    setTimeout(() => setGameJoinStatus(null), 3500);
+  };
+
+  const handleSendInGameInvite = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+    await GameSyncService.sendInGameInvite('Duo Match Lounge');
+    setInviteSentStatus(`🎮 In-Game invite sent to ${partnerName}!`);
+    setTimeout(() => setInviteSentStatus(null), 3500);
+  };
+
+  const handleSimulateReceiveInvite = () => {
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+    const incoming: InGameInvite = {
+      id: `invite-${Date.now()}`,
+      fromName: partnerName,
+      toName: userName,
+      gameTitle: 'Couplesify Duo Lounge',
+      gameRoomCode: duoState?.gameRoomCode || 'GAME-7824',
+      timestamp: Date.now(),
+    };
+    setPendingInvitePopup(incoming);
+  };
+
+  const handleAcceptInvite = async () => {
+    if (pendingInvitePopup) {
+      await GameSyncService.joinRoomByCode(pendingInvitePopup.gameRoomCode);
+      setIsPartnerConnected(true);
+      setDuoState((prev) =>
+        prev
+          ? {
+              ...prev,
+              gameRoomCode: pendingInvitePopup.gameRoomCode,
+              isPartnerConnected: true,
+            }
+          : prev
+      );
+      setPendingInvitePopup(null);
+      setIsInviteModalOpen(false);
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+      setGameJoinStatus(
+        `Accepted invite from ${pendingInvitePopup.fromName}! Entered room ${pendingInvitePopup.gameRoomCode} 🎮`
+      );
+      setTimeout(() => setGameJoinStatus(null), 3500);
+    }
+  };
+
+  const handleDeclineInvite = () => {
+    setPendingInvitePopup(null);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+  };
+
+  const handleShuffleTurn = () => {
+    if (isShufflingTurn) return;
+    setIsShufflingTurn(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+
+    let count = 0;
+    const interval = setInterval(() => {
+      setTodTurn((prev) => (prev === 'user' ? 'partner' : 'user'));
+      count++;
+      if (count > 6) {
+        clearInterval(interval);
+        const next = Math.random() > 0.5 ? 'user' : 'partner';
+        setTodTurn(next);
+        setIsShufflingTurn(false);
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch {}
+      }
+    }, 120);
+  };
+
+  const handleSaveCustomPrompt = async () => {
+    if (!customPromptInput.trim()) return;
+    const text = customPromptInput.trim();
+    if (customPromptType === 'truth') {
+      setCustomTruths((prev) => [text, ...prev]);
+      await GameSyncService.addCustomPrompt('tod', text, 'truth', 'user');
+      setTodType('truth');
+      setTodIndex(0);
+    } else {
+      setCustomDares((prev) => [text, ...prev]);
+      await GameSyncService.addCustomPrompt('tod', text, 'dare', 'user');
+      setTodType('dare');
+      setTodIndex(0);
+    }
+    setCustomPromptInput('');
+    setIsCustomModalOpen(false);
+    setCardFlipped(true);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+  };
+
+  const handleSaveTextAnswer = async (promptKey: string) => {
+    if (!answerInputText.trim()) return;
+    const ans = answerInputText.trim();
+    setSavedAnswers((prev) => ({ ...prev, [promptKey]: ans }));
+    await GameSyncService.savePromptAnswer(promptKey, ans, todTurn);
+    setAnswerInputText('');
+    setShowAnswerInput(false);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
   };
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    const isSpicy = viewMode === 'spicy_games' || isSpicyTransitionActive;
+    onSpicyModeChange?.(isSpicy);
+    return () => {
+      onSpicyModeChange?.(false);
+    };
+  }, [viewMode, isSpicyTransitionActive, onSpicyModeChange]);
 
   const handleToggleGoal = async (id: string) => {
     const updated = goals.map((g) => {
@@ -168,11 +413,11 @@ export const GamesScreen: React.FC = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {}
     } else {
-      const nextTurn = tttTurn === '❤️' ? '⭐' : '❤️';
+      const nextTurn = tttTurn === 'X' ? 'O' : 'X';
       setTttTurn(nextTurn);
 
-      // Automated playful partner move if playing as ❤️
-      if (nextTurn === '⭐') {
+      // Automated partner move if playing as X
+      if (nextTurn === 'O') {
         setTimeout(() => {
           const emptyIndices = next
             .map((val, idx) => (val === null ? idx : null))
@@ -181,13 +426,13 @@ export const GamesScreen: React.FC = () => {
           if (emptyIndices.length > 0) {
             const randomIdx = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
             const autoBoard = [...next];
-            autoBoard[randomIdx] = '⭐';
+            autoBoard[randomIdx] = 'O';
             const autoWinner = checkTttWinner(autoBoard);
             setTttBoard(autoBoard);
             if (autoWinner) {
               setTttWinner(autoWinner);
             } else {
-              setTttTurn('❤️');
+              setTttTurn('X');
             }
           }
         }, 500);
@@ -197,40 +442,27 @@ export const GamesScreen: React.FC = () => {
 
   const resetTtt = () => {
     setTttBoard(Array(9).fill(null));
-    setTttTurn('❤️');
+    setTttTurn('X');
     setTttWinner(null);
   };
 
-  // ------------------ DAILY QUIZ DATA ------------------
-  const QUIZ_QUESTIONS = [
-    {
-      q: 'Who takes longer to get dressed before a date?',
-      options: ['Definitely Me 👗', 'My Partner 👔', 'Both equally slow ⏳'],
-      partnerAnswer: 1,
-    },
-    {
-      q: 'What is our ultimate dream vacation?',
-      options: ['Secluded tropical beach bungalow 🏝️', 'Cozy mountain cabin & hot cocoa 🏔️', 'European historic city walk 🏰'],
-      partnerAnswer: 0,
-    },
-    {
-      q: 'What was the first meal we had together?',
-      options: ['Sushi & ramen 🍜', 'Late night pizza & soda 🍕', 'Artisanal burgers & shakes 🍔'],
-      partnerAnswer: 1,
-    },
-  ];
+  // ------------------ DAILY QUIZ DATA (50+ QUESTIONS) ------------------
+  const QUIZ_QUESTIONS = MINI_GAME_QUIZ_QUESTIONS;
 
   const handleSelectQuizOption = (optIdx: number) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
     setUserQuizAnswer(optIdx);
+    const partnerPick = QUIZ_QUESTIONS[quizIndex]?.partnerAnswer ?? 0;
+    setPartnerQuizAnswer(partnerPick);
     setRevealedQuiz(true);
   };
 
   const handleNextQuiz = () => {
     setQuizIndex((prev) => (prev + 1) % QUIZ_QUESTIONS.length);
     setUserQuizAnswer(null);
+    setPartnerQuizAnswer(null);
     setRevealedQuiz(false);
   };
 
@@ -285,20 +517,12 @@ export const GamesScreen: React.FC = () => {
     outputRange: ['0deg', '360deg'],
   });
 
-  // ------------------ TRUTH OR DARE DATA ------------------
+  // ------------------ TRUTH OR DARE DATA (105+ TRUTHS & 105+ DARES) ------------------
+  const ALL_TRUTHS = [...customTruths, ...MINI_GAME_TRUTHS];
+  const ALL_DARES = [...customDares, ...MINI_GAME_DARES];
   const TOD_DATA = {
-    truth: [
-      'What was the exact moment you realized you loved me?',
-      'What is one cute habit of mine that melts your heart?',
-      'If we could run away anywhere tomorrow, where would we go?',
-      'What is your favorite outfit that I wear?',
-    ],
-    dare: [
-      'Give me a passionate kiss right now for 20 seconds!',
-      'Take a silly selfie together and make it our couple wallpaper.',
-      'Call out 5 things you find irresistibly attractive about me.',
-      'Give me an affectionate forehead and nose kiss.',
-    ],
+    truth: ALL_TRUTHS,
+    dare: ALL_DARES,
   };
 
   // ------------------ FANTASY DICE DATA ------------------
@@ -338,15 +562,8 @@ export const GamesScreen: React.FC = () => {
     }, 700);
   };
 
-  // ------------------ NEVER HAVE I EVER DATA ------------------
-  const NHIE_PROMPTS = [
-    'Never have I ever had a spicy dream about you that made me blush waking up.',
-    'Never have I ever pretended to be asleep just so you would cuddle me closer.',
-    'Never have I ever wanted to steal a passionate kiss in a busy elevator.',
-    'Never have I ever stared at your lips while you were talking about your day.',
-    'Never have I ever sent a message that made my heart race before hitting send.',
-    'Never have I ever secretly planned our future wedding in my head.',
-  ];
+  // ------------------ NEVER HAVE I EVER DATA (105+ PROMPTS) ------------------
+  const NHIE_PROMPTS = SPICY_NHIE_PROMPTS;
 
   // ------------------ SENSORY TOUCH DATA ------------------
   const SENSORY_CHALLENGES = [
@@ -372,6 +589,7 @@ export const GamesScreen: React.FC = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     } catch {}
+    onSpicyModeChange?.(true);
     setIsSpicyTransitionActive(true);
   };
 
@@ -379,7 +597,10 @@ export const GamesScreen: React.FC = () => {
     return (
       <>
         <SpicyGamesLounge
-          onBack={() => setViewMode('hub')}
+          onBack={() => {
+            setViewMode('hub');
+            onSpicyModeChange?.(false);
+          }}
           partnerName={partnerName}
           userName={userName}
         />
@@ -435,9 +656,26 @@ export const GamesScreen: React.FC = () => {
               </Text>
             </View>
 
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>2 Games</Text>
-            </View>
+            <TouchableOpacity
+              style={styles.duoHeaderBadge}
+              onPress={() => {
+                try {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                } catch {}
+                setIsInviteModalOpen(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <View
+                style={[
+                  styles.duoHeaderDot,
+                  { backgroundColor: isPartnerConnected ? '#10B981' : '#F59E0B' },
+                ]}
+              />
+              <Text style={styles.duoHeaderBadgeText}>
+                {isPartnerConnected ? 'Duo Active' : 'Invite'}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -480,7 +718,7 @@ export const GamesScreen: React.FC = () => {
                     {/* Preview Chips */}
                     <View style={styles.categoryChipsRow}>
                       <View style={styles.categoryChip}>
-                        <Text style={styles.chipText}>❤️ Tic-Tac-Toe</Text>
+                        <Text style={styles.chipText}>⚔️ Tic-Tac-Toe</Text>
                       </View>
                       <View style={styles.categoryChip}>
                         <Text style={styles.chipText}>🃏 Truth or Dare</Text>
@@ -511,8 +749,12 @@ export const GamesScreen: React.FC = () => {
                     style={styles.categoryCardGradient}
                   >
                     <View style={styles.categoryCardTopRow}>
-                      <View style={[styles.categoryIconCircle, { backgroundColor: '#FFE8EC' }]}>
-                        <Text style={styles.categoryEmoji}>🔥</Text>
+                      <View style={[styles.categoryIconCircle, styles.spicyCardIconCircle]}>
+                        <Image
+                          source={require('../../assets/spicy_chili.png')}
+                          style={styles.cardChiliImage}
+                          resizeMode="contain"
+                        />
                       </View>
                       <View style={[styles.categoryBadgePill, styles.spicyBadgePill]}>
                         <Text style={styles.spicyBadgeText}>Hot & Intimate • 4 Games</Text>
@@ -527,16 +769,16 @@ export const GamesScreen: React.FC = () => {
                     {/* Preview Chips */}
                     <View style={styles.categoryChipsRow}>
                       <View style={styles.spicyChip}>
-                        <Text style={styles.spicyChipText}>🎡 Spicy Wheel</Text>
+                        <Text style={styles.spicyChipText}>💖 Truth or Dare</Text>
                       </View>
                       <View style={styles.spicyChip}>
-                        <Text style={styles.spicyChipText}>🎲 Fantasy Dice</Text>
+                        <Text style={styles.spicyChipText}>🍒 Never Have I</Text>
                       </View>
                       <View style={styles.spicyChip}>
-                        <Text style={styles.spicyChipText}>🙈 Never Have I</Text>
+                        <Text style={styles.spicyChipText}>💌 I Dare You</Text>
                       </View>
                       <View style={styles.spicyChip}>
-                        <Text style={styles.spicyChipText}>💋 Sensory Touch</Text>
+                        <Text style={styles.spicyChipText}>🎯 Hot Trivia</Text>
                       </View>
                     </View>
 
@@ -606,12 +848,106 @@ export const GamesScreen: React.FC = () => {
           {/* ======================================================== */}
           {viewMode === 'mini_games' && (
             <View style={styles.subSectionContainer}>
+              {/* DUO PARTNER LOBBY BANNER */}
+              <View style={styles.duoLobbyCard}>
+                <View style={styles.duoLobbyTopRow}>
+                  <View style={styles.duoStatusPill}>
+                    <View
+                      style={[
+                        styles.duoStatusDot,
+                        { backgroundColor: isPartnerConnected ? '#10B981' : '#F59E0B' },
+                      ]}
+                    />
+                    <Text style={styles.duoStatusText}>
+                      {isPartnerConnected ? 'Duo Mode: Live Connected' : 'Waiting for Partner'}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.duoInviteBtn}
+                    onPress={() => {
+                      try {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      } catch {}
+                      setIsInviteModalOpen(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="people" size={15} color="#FFFFFF" style={{ marginRight: 5 }} />
+                    <Text style={styles.duoInviteBtnText}>Invite / Room</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Players Connected Row */}
+                <View style={styles.duoPlayersRow}>
+                  {/* Player 1: User */}
+                  <View style={styles.duoPlayerCard}>
+                    <View style={styles.duoAvatarCircle}>
+                      <Text style={styles.duoAvatarEmoji}>💖</Text>
+                      <View style={styles.duoOnlineBadge} />
+                    </View>
+                    <Text style={styles.duoPlayerName} numberOfLines={1}>{userName}</Text>
+                    <Text style={styles.duoPlayerRole}>Host (You)</Text>
+                  </View>
+
+                  {/* Duo Connector */}
+                  <View style={styles.duoConnector}>
+                    <Ionicons
+                      name="heart"
+                      size={20}
+                      color={isPartnerConnected ? AppColors.primary : '#D1D5DB'}
+                    />
+                    <Text style={styles.duoConnectorText}>
+                      {isPartnerConnected ? 'DUO' : 'INVITE'}
+                    </Text>
+                  </View>
+
+                  {/* Player 2: Partner */}
+                  <TouchableOpacity
+                    style={styles.duoPlayerCard}
+                    onPress={() => setIsInviteModalOpen(true)}
+                    activeOpacity={0.8}
+                  >
+                    <View
+                      style={[
+                        styles.duoAvatarCircle,
+                        !isPartnerConnected && styles.duoAvatarCircleOffline,
+                      ]}
+                    >
+                      <Text style={styles.duoAvatarEmoji}>🌸</Text>
+                      {isPartnerConnected ? (
+                        <View style={styles.duoOnlineBadge} />
+                      ) : (
+                        <View style={styles.duoWaitingBadge}>
+                          <Ionicons name="time" size={10} color="#FFFFFF" />
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.duoPlayerName} numberOfLines={1}>{partnerName}</Text>
+                    <Text
+                      style={[
+                        styles.duoPlayerRole,
+                        { color: isPartnerConnected ? '#059669' : '#D97706' },
+                      ]}
+                    >
+                      {isPartnerConnected ? 'Present 🟢' : 'Tap to Invite ⏳'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.duoLobbyHint}>
+                  {isPartnerConnected
+                    ? '✨ Both players synced. Turn shuffling & answers are live!'
+                    : `💌 Invite ${partnerName} with room code: ${duoState?.inviteCode || 'LOVE-77'}`}
+                </Text>
+              </View>
+
               {/* 2 Main Games Grid (Tic-Tac-Toe and Truth or Dare) */}
               <View style={styles.gridRow}>
                 <GameTile
                   title="Live Tic-Tac-Toe"
-                  tagline="Hearts vs Stars real-time board"
-                  emoji="❤️"
+                  tagline="Cross (✕) vs Circle (◯) board"
+                  emoji="⚔️"
                   bgColor="rgba(244, 239, 255, 0.60)"
                   badgeText="Live"
                   onPress={() => setActiveGameModal('ttt')}
@@ -667,7 +1003,8 @@ export const GamesScreen: React.FC = () => {
               <View style={styles.quizOptionsList}>
                 {QUIZ_QUESTIONS[quizIndex].options.map((opt, optIdx) => {
                   const isUserChoice = userQuizAnswer === optIdx;
-                  const isPartnerChoice = QUIZ_QUESTIONS[quizIndex].partnerAnswer === optIdx;
+                  const effectivePartnerChoice = partnerQuizAnswer !== null ? partnerQuizAnswer : QUIZ_QUESTIONS[quizIndex].partnerAnswer;
+                  const isPartnerChoice = effectivePartnerChoice === optIdx;
                   return (
                     <TouchableOpacity
                       key={optIdx}
@@ -722,28 +1059,57 @@ export const GamesScreen: React.FC = () => {
               {/* Turn indicator */}
               <View style={styles.tttStatusRow}>
                 {tttWinner ? (
-                  <Text style={styles.tttWinnerText}>
-                    {tttWinner === 'Draw' ? "It's a Tie! 💕" : `Winner: ${tttWinner} Wins! 🎉`}
-                  </Text>
+                  <View style={styles.tttWinnerBanner}>
+                    <Text style={styles.tttWinnerText}>
+                      {tttWinner === 'Draw' ? "It's a Draw! 🤝" : `Winner: ${tttWinner} Wins! 🎉`}
+                    </Text>
+                  </View>
                 ) : (
-                  <Text style={styles.tttTurnText}>
-                    Turn: <Text style={{ color: AppColors.primary }}>{tttTurn === '❤️' ? 'Your Turn (❤️)' : 'Partner Turn (⭐)'}</Text>
-                  </Text>
+                  <View style={styles.tttTurnContainer}>
+                    <Text style={styles.tttTurnLabel}>Turn: </Text>
+                    <View
+                      style={[
+                        styles.tttTurnBadge,
+                        tttTurn === 'X' ? styles.tttTurnBadgeX : styles.tttTurnBadgeO,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.tttTurnBadgeText,
+                          { color: tttTurn === 'X' ? '#FF2D55' : '#4361EE' },
+                        ]}
+                      >
+                        {tttTurn === 'X' ? 'Your Turn ( ✕ )' : "Partner's Turn ( ◯ )"}
+                      </Text>
+                    </View>
+                  </View>
                 )}
               </View>
 
-              {/* 3x3 Grid */}
-              <View style={styles.tttGrid}>
-                {tttBoard.map((val, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={styles.tttCell}
-                    onPress={() => handleTttCellPress(idx)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.tttCellText}>{val || ''}</Text>
-                  </TouchableOpacity>
-                ))}
+              {/* 3x3 Grid with clear, high-contrast visible boxes */}
+              <View style={styles.tttGridContainer}>
+                <View style={styles.tttGrid}>
+                  {tttBoard.map((val, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[
+                        styles.tttCell,
+                        val === 'X' && styles.tttCellActiveX,
+                        val === 'O' && styles.tttCellActiveO,
+                      ]}
+                      onPress={() => handleTttCellPress(idx)}
+                      activeOpacity={0.7}
+                    >
+                      {val === 'X' ? (
+                        <Text style={styles.tttCellCross}>✕</Text>
+                      ) : val === 'O' ? (
+                        <Text style={styles.tttCellCircle}>◯</Text>
+                      ) : (
+                        <View style={styles.tttCellEmptyDot} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
 
               <TouchableOpacity style={styles.resetTttBtn} onPress={resetTtt}>
@@ -824,9 +1190,55 @@ export const GamesScreen: React.FC = () => {
           <View style={styles.modalOverlay}>
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
-                <Text style={styles.gameModalTitle}>Truth or Dare Deck 🃏</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={styles.gameModalTitle}>Truth or Dare Deck 🃏</Text>
+                  <View style={styles.deckCountBadge}>
+                    <Text style={styles.deckCountBadgeText}>
+                      {TOD_DATA[todType].length} Cards
+                    </Text>
+                  </View>
+                </View>
                 <TouchableOpacity onPress={() => setActiveGameModal(null)}>
                   <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Duo Turn Shuffler Bar */}
+              <View style={styles.duoTurnBar}>
+                <View style={styles.duoTurnLeft}>
+                  <Text style={styles.duoTurnLabel}>TURN:</Text>
+                  <View
+                    style={[
+                      styles.duoTurnBadge,
+                      todTurn === 'user' ? styles.duoTurnBadgeUser : styles.duoTurnBadgePartner,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.duoTurnBadgeText,
+                        { color: todTurn === 'user' ? AppColors.primary : '#8B5CF6' },
+                      ]}
+                    >
+                      {todTurn === 'user' ? `${userName} (You)` : partnerName}
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.shuffleBtn, isShufflingTurn && styles.shuffleBtnDisabled]}
+                  onPress={handleShuffleTurn}
+                  disabled={isShufflingTurn}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="shuffle"
+                    size={14}
+                    color="#FFFFFF"
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={styles.shuffleBtnText}>
+                    {isShufflingTurn ? 'Shuffling...' : 'Shuffle Turn'}
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -837,10 +1249,11 @@ export const GamesScreen: React.FC = () => {
                   onPress={() => {
                     setTodType('truth');
                     setCardFlipped(false);
+                    setShowAnswerInput(false);
                   }}
                 >
                   <Text style={[styles.tierBtnText, todType === 'truth' && styles.tierBtnTextActive]}>
-                    Truth 💭
+                    Truth 💭 ({ALL_TRUTHS.length})
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -848,10 +1261,11 @@ export const GamesScreen: React.FC = () => {
                   onPress={() => {
                     setTodType('dare');
                     setCardFlipped(false);
+                    setShowAnswerInput(false);
                   }}
                 >
                   <Text style={[styles.tierBtnText, todType === 'dare' && styles.tierBtnTextActive]}>
-                    Dare 🌶️
+                    Dare 🌶️ ({ALL_DARES.length})
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -859,16 +1273,31 @@ export const GamesScreen: React.FC = () => {
               {/* Flip Card */}
               <TouchableOpacity
                 style={[styles.flipCard, cardFlipped && styles.flipCardFlipped]}
-                onPress={() => setCardFlipped(!cardFlipped)}
+                onPress={() => {
+                  setCardFlipped(!cardFlipped);
+                  try {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  } catch {}
+                }}
                 activeOpacity={0.9}
               >
                 {!cardFlipped ? (
                   <View style={styles.cardFront}>
                     <Text style={styles.cardDeckEmoji}>{todType === 'truth' ? '💭' : '🌶️'}</Text>
-                    <Text style={styles.tapToRevealText}>Tap to reveal {todType.toUpperCase()}</Text>
+                    <Text style={styles.tapToRevealText}>
+                      Tap to reveal {todType.toUpperCase()} for {todTurn === 'user' ? userName : partnerName}
+                    </Text>
+                    <Text style={styles.cardSubNotice}>
+                      #{((todIndex) % TOD_DATA[todType].length) + 1} of {TOD_DATA[todType].length}
+                    </Text>
                   </View>
                 ) : (
                   <View style={styles.cardBack}>
+                    <View style={styles.cardBackCategoryBadge}>
+                      <Text style={styles.cardBackCategoryText}>
+                        {todType.toUpperCase()} • CARD #{((todIndex) % TOD_DATA[todType].length) + 1}
+                      </Text>
+                    </View>
                     <Text style={styles.cardBackPrompt}>
                       {TOD_DATA[todType][todIndex % TOD_DATA[todType].length]}
                     </Text>
@@ -876,15 +1305,95 @@ export const GamesScreen: React.FC = () => {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.spinBtn}
-                onPress={() => {
-                  setTodIndex((i) => i + 1);
-                  setCardFlipped(false);
-                }}
-              >
-                <Text style={styles.spinBtnText}>Draw Next Card &gt;</Text>
-              </TouchableOpacity>
+              {/* Duo Actions: Custom Question & Text Answer */}
+              {cardFlipped && (
+                <View style={styles.duoActionRow}>
+                  <TouchableOpacity
+                    style={styles.duoSecondaryActionBtn}
+                    onPress={() => {
+                      setCustomPromptType(todType);
+                      setIsCustomModalOpen(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="create-outline" size={15} color={AppColors.primary} style={{ marginRight: 4 }} />
+                    <Text style={styles.duoSecondaryActionText}>Custom {todType === 'truth' ? 'Truth' : 'Dare'}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.duoSecondaryActionBtn}
+                    onPress={() => setShowAnswerInput(!showAnswerInput)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="chatbubble-ellipses-outline" size={15} color={AppColors.primary} style={{ marginRight: 4 }} />
+                    <Text style={styles.duoSecondaryActionText}>
+                      {showAnswerInput ? 'Hide Answer' : 'Type Answer'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Text Answer Input Section */}
+              {cardFlipped && showAnswerInput && (
+                <View style={styles.answerInputContainer}>
+                  <Text style={styles.answerInputTitle}>
+                    ✍️ {todTurn === 'user' ? userName : partnerName}'s Text Answer:
+                  </Text>
+                  <TextInput
+                    style={styles.answerTextInput}
+                    placeholder={`Type your response to this ${todType}...`}
+                    placeholderTextColor="#A09398"
+                    value={answerInputText}
+                    onChangeText={setAnswerInputText}
+                    multiline
+                  />
+                  <TouchableOpacity
+                    style={styles.answerSubmitBtn}
+                    onPress={() => {
+                      const promptKey = `tod-${todType}-${todIndex % TOD_DATA[todType].length}`;
+                      handleSaveTextAnswer(promptKey);
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="send" size={14} color="#FFFFFF" style={{ marginRight: 5 }} />
+                    <Text style={styles.answerSubmitBtnText}>Save & Reveal Answer</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Display Written Answer if available */}
+              {cardFlipped && savedAnswers[`tod-${todType}-${todIndex % TOD_DATA[todType].length}`] && (
+                <View style={styles.savedAnswerCard}>
+                  <View style={styles.savedAnswerHeader}>
+                    <Ionicons name="heart" size={14} color={AppColors.primary} style={{ marginRight: 5 }} />
+                    <Text style={styles.savedAnswerLabel}>
+                      {todTurn === 'user' ? userName : partnerName}'s Written Confession:
+                    </Text>
+                  </View>
+                  <Text style={styles.savedAnswerText}>
+                    "{savedAnswers[`tod-${todType}-${todIndex % TOD_DATA[todType].length}`]}"
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.todFooterBtnRow}>
+                <TouchableOpacity
+                  style={[styles.spinBtn, { flex: 1, marginRight: 8 }]}
+                  onPress={() => {
+                    setTodIndex((i) => i + 1);
+                    setCardFlipped(false);
+                    setShowAnswerInput(false);
+                  }}
+                >
+                  <Text style={styles.spinBtnText}>Draw Next Card ➔</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.spinBtn, { backgroundColor: '#8B5CF6', paddingHorizontal: 16 }]}
+                  onPress={handleShuffleTurn}
+                >
+                  <Ionicons name="shuffle" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -1063,6 +1572,293 @@ export const GamesScreen: React.FC = () => {
             </View>
           </View>
         </Modal>
+
+        {/* ----------------- MODAL 9: DUO GAME ROOM & PARTNER INVITE ----------------- */}
+        <Modal visible={isInviteModalOpen} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.gameModalCard}>
+              <View style={styles.modalTopRow}>
+                <View>
+                  <Text style={styles.gameModalTitle}>Duo Game Room 🎮</Text>
+                  <Text style={styles.modalSubtitle}>Session Match Room & In-Game Invites</Text>
+                </View>
+                <TouchableOpacity onPress={() => setIsInviteModalOpen(false)}>
+                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Status or Toast Feedback */}
+              {(gameJoinStatus || inviteSentStatus) && (
+                <View style={styles.gameToastBanner}>
+                  <Ionicons name="sparkles" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.gameToastText}>{gameJoinStatus || inviteSentStatus}</Text>
+                </View>
+              )}
+
+              {/* 1. Dedicated Game Match Code Box */}
+              <View style={styles.inviteBox}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                  <Text style={styles.inviteBoxLabel}>GAME MATCH ROOM CODE 🎮</Text>
+                  <TouchableOpacity
+                    style={styles.newCodePill}
+                    onPress={handleGenerateNewGameCode}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="refresh" size={11} color={AppColors.primary} />
+                    <Text style={styles.newCodePillText}>New Code</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.inviteCodeDisplayRow}>
+                  <Text style={styles.inviteCodeText}>{duoState?.gameRoomCode || 'GAME-7824'}</Text>
+                  <TouchableOpacity
+                    style={styles.copyCodeBtn}
+                    onPress={handleCopyGameCode}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={inviteCopied ? 'checkmark' : 'copy'}
+                      size={14}
+                      color="#FFFFFF"
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text style={styles.copyCodeBtnText}>
+                      {inviteCopied ? 'Copied! ✨' : 'Copy Code'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* 2. Join via Code with PASTE option */}
+              <View style={styles.joinCodeBox}>
+                <Text style={styles.joinCodeLabel}>ENTER / PASTE PARTNER'S CODE TO JOIN</Text>
+                <View style={styles.joinInputRow}>
+                  <TextInput
+                    style={styles.joinTextInput}
+                    placeholder="e.g. GAME-7824"
+                    placeholderTextColor="#C4B4BA"
+                    value={gameCodeInput}
+                    onChangeText={setGameCodeInput}
+                    autoCapitalize="characters"
+                  />
+                  <TouchableOpacity
+                    style={styles.pasteCodeBtn}
+                    onPress={handlePasteGameCode}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="clipboard-outline" size={14} color={AppColors.primary} />
+                    <Text style={styles.pasteCodeBtnText}>Paste</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.joinSubmitBtn}
+                    onPress={handleJoinGameRoom}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                    <Text style={styles.joinSubmitBtnText}>Join</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* 3. COD Mobile / Free Fire Style In-Game Invite Box */}
+              <View style={styles.inGameInviteCard}>
+                <View style={styles.inGamePartnerRow}>
+                  <View style={styles.inGameAvatarCircle}>
+                    <Text style={styles.inGameAvatarEmoji}>❤️</Text>
+                    <View
+                      style={[
+                        styles.onlineDot,
+                        { backgroundColor: isPartnerConnected ? '#10B981' : '#F59E0B' },
+                      ]}
+                    />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={styles.inGamePartnerName}>{partnerName}</Text>
+                    <Text style={styles.inGamePartnerStatus}>
+                      {isPartnerConnected ? '🟢 In Room / Connected' : '⏳ Ready for Game Invite'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.inGameInviteBtn}
+                    onPress={handleSendInGameInvite}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="person-add" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    <Text style={styles.inGameInviteBtnText}>Invite</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Simulate Receive In-Game Invite Button for Instant Testing */}
+                <TouchableOpacity
+                  style={styles.simulateIncomingBtn}
+                  onPress={handleSimulateReceiveInvite}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="notifications-outline" size={13} color="#8F78D2" style={{ marginRight: 5 }} />
+                  <Text style={styles.simulateIncomingText}>
+                    Simulate In-Game Invite from {partnerName} (Pop-up Test)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 4. Live Partner Status Card */}
+              <TouchableOpacity
+                style={[
+                  styles.partnerStatusCard,
+                  isPartnerConnected
+                    ? styles.partnerStatusConnected
+                    : styles.partnerStatusWaiting,
+                ]}
+                onPress={handleTogglePartnerConnect}
+                activeOpacity={0.85}
+              >
+                <View style={styles.partnerStatusIconCircle}>
+                  <Ionicons
+                    name={isPartnerConnected ? 'checkmark-circle' : 'hourglass-outline'}
+                    size={24}
+                    color={isPartnerConnected ? '#10B981' : '#F59E0B'}
+                  />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.partnerStatusTitle}>
+                    {isPartnerConnected
+                      ? `🟢 ${partnerName} is in Room!`
+                      : `⏳ Waiting for ${partnerName}`}
+                  </Text>
+                  <Text style={styles.partnerStatusDesc}>
+                    {isPartnerConnected
+                      ? 'Both players connected in match room. Turns and answers sync automatically! (Tap to toggle)'
+                      : `Invite ${partnerName} or share match code above to play together. (Tap to toggle)`}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Permanent Account Pairing vs Match Code Clarification */}
+              <View style={styles.permanentAccountNotice}>
+                <Ionicons name="link-outline" size={14} color="#6B7280" style={{ marginRight: 6 }} />
+                <Text style={styles.permanentAccountNoticeText}>
+                  Permanent Account Link: <Text style={{ fontWeight: '700' }}>{duoState?.inviteCode || 'PAIR-7729'}</Text> (linked on login, distinct from match room)
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.spinBtn}
+                onPress={() => setIsInviteModalOpen(false)}
+              >
+                <Text style={styles.spinBtnText}>Close & Play Now ✨</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ----------------- IN-GAME INVITE POP-UP (COD / FREE FIRE STYLE) ----------------- */}
+        <Modal visible={!!pendingInvitePopup} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.invitePopupCard}>
+              <View style={styles.invitePopupIconBadge}>
+                <Ionicons name="game-controller" size={32} color="#FF6575" />
+              </View>
+              <Text style={styles.invitePopupHeader}>Game Invite! 🎮</Text>
+              <Text style={styles.invitePopupBody}>
+                <Text style={{ fontWeight: '700', color: AppColors.primary }}>
+                  {pendingInvitePopup?.fromName}
+                </Text>{' '}
+                invited you to play{' '}
+                <Text style={{ fontWeight: '700', color: AppColors.textPrimary }}>
+                  {pendingInvitePopup?.gameTitle}
+                </Text>
+                !
+              </Text>
+
+              <View style={styles.popupRoomCodePill}>
+                <Text style={styles.popupRoomCodeLabel}>ROOM CODE:</Text>
+                <Text style={styles.popupRoomCodeValue}>
+                  {pendingInvitePopup?.gameRoomCode}
+                </Text>
+              </View>
+
+              <View style={styles.invitePopupActionsRow}>
+                <TouchableOpacity
+                  style={styles.popupDeclineBtn}
+                  onPress={handleDeclineInvite}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.popupDeclineBtnText}>Decline</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.popupAcceptBtn}
+                  onPress={handleAcceptInvite}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="play" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  <Text style={styles.popupAcceptBtnText}>Accept & Join 🚀</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ----------------- MODAL 10: CUSTOM PROMPT CREATION ----------------- */}
+        <Modal visible={isCustomModalOpen} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.gameModalCard}>
+              <View style={styles.modalTopRow}>
+                <View>
+                  <Text style={styles.gameModalTitle}>Create Custom Prompt ✍️</Text>
+                  <Text style={styles.modalSubtitle}>Add your own question or dare for {partnerName}</Text>
+                </View>
+                <TouchableOpacity onPress={() => setIsCustomModalOpen(false)}>
+                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Type selector */}
+              <View style={styles.wheelTierRow}>
+                <TouchableOpacity
+                  style={[styles.tierBtn, customPromptType === 'truth' && styles.tierBtnActive]}
+                  onPress={() => setCustomPromptType('truth')}
+                >
+                  <Text style={[styles.tierBtnText, customPromptType === 'truth' && styles.tierBtnTextActive]}>
+                    Truth 💭
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.tierBtn, customPromptType === 'dare' && styles.tierBtnActive]}
+                  onPress={() => setCustomPromptType('dare')}
+                >
+                  <Text style={[styles.tierBtnText, customPromptType === 'dare' && styles.tierBtnTextActive]}>
+                    Dare 🌶️
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.inputLabel}>
+                Your Custom {customPromptType.toUpperCase()} Prompt:
+              </Text>
+              <TextInput
+                style={[styles.modalTextInput, { height: 90, textAlignVertical: 'top' }]}
+                placeholder={
+                  customPromptType === 'truth'
+                    ? 'e.g. What was the exact second you fell in love with me?'
+                    : 'e.g. Whisper 3 things you love about me for 30 seconds...'
+                }
+                placeholderTextColor="#A09398"
+                value={customPromptInput}
+                onChangeText={setCustomPromptInput}
+                multiline
+              />
+
+              <TouchableOpacity
+                style={[styles.spinBtn, { marginTop: 16 }]}
+                onPress={handleSaveCustomPrompt}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="sparkles" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.spinBtnText}>Add to Duo Deck ✨</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </LinearGradient>
   );
@@ -1174,6 +1970,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
+  },
+  spicyCardIconCircle: {
+    backgroundColor: '#FFE5EB',
+    borderWidth: 1.5,
+    borderColor: '#FF758C',
+    shadowColor: '#FF1E56',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  cardChiliImage: {
+    width: 36,
+    height: 36,
+    transform: [{ rotate: '-10deg' }],
   },
   categoryEmoji: {
     fontSize: 26,
@@ -1467,50 +2278,128 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  tttTurnText: {
+  tttTurnContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tttTurnLabel: {
     fontSize: 15,
     fontWeight: '700',
     color: AppColors.textPrimary,
   },
+  tttTurnBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  tttTurnBadgeX: {
+    backgroundColor: '#FFF0F3',
+    borderColor: '#FFBAC8',
+  },
+  tttTurnBadgeO: {
+    backgroundColor: '#F0F4FF',
+    borderColor: '#BAC9FF',
+  },
+  tttTurnBadgeText: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  tttWinnerBanner: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: '#FFF0F5',
+    borderWidth: 1.5,
+    borderColor: '#FFBAC8',
+  },
   tttWinnerText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '900',
     color: AppColors.primary,
   },
-  tttGrid: {
-    width: 240,
-    height: 240,
+  tttGridContainer: {
+    backgroundColor: '#FFF0F4',
+    borderRadius: 22,
+    padding: 10,
     alignSelf: 'center',
+    borderWidth: 2,
+    borderColor: '#FFD6DF',
+    marginBottom: 20,
+    shadowColor: '#FF6B8B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  tttGrid: {
+    width: 252,
+    height: 252,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tttCell: {
-    width: 74,
-    height: 74,
-    backgroundColor: 'rgba(255, 247, 248, 0.65)',
+    width: 76,
+    height: 76,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.92)',
+    borderWidth: 2,
+    borderColor: '#FFC0CB',
+    shadowColor: '#E07A90',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  tttCellText: {
-    fontSize: 28,
+  tttCellActiveX: {
+    backgroundColor: '#FFF2F5',
+    borderColor: '#FF2D55',
+  },
+  tttCellActiveO: {
+    backgroundColor: '#F2F5FF',
+    borderColor: '#4361EE',
+  },
+  tttCellCross: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#FF2D55',
+    lineHeight: 38,
+  },
+  tttCellCircle: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#4361EE',
+    lineHeight: 38,
+  },
+  tttCellEmptyDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFD4DE',
   },
   resetTttBtn: {
     backgroundColor: AppColors.primary,
-    borderRadius: 14,
-    paddingVertical: 12,
+    borderRadius: 16,
+    paddingVertical: 13,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
   },
   resetTttBtnText: {
     color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
+    fontWeight: '800',
+    fontSize: 15,
   },
   wheelTierRow: {
     flexDirection: 'row',
@@ -1844,6 +2733,739 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
+  },
+  // DUO LOBBY & HEADER STYLES
+  duoHeaderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 143, 171, 0.4)',
+  },
+  duoHeaderDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    marginRight: 5,
+  },
+  duoHeaderBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: AppColors.textPrimary,
+  },
+  duoLobbyCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.78)',
+    borderRadius: 22,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: '#E297A5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 3,
+  },
+  duoLobbyTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  duoStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 240, 243, 0.9)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+  },
+  duoStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  duoStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: AppColors.textPrimary,
+  },
+  duoInviteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  duoInviteBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  duoPlayersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: 16,
+  },
+  duoPlayerCard: {
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  duoAvatarCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FFE8EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    position: 'relative',
+  },
+  duoAvatarCircleOffline: {
+    backgroundColor: '#F3F4F6',
+  },
+  duoAvatarEmoji: {
+    fontSize: 24,
+  },
+  duoOnlineBadge: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+  },
+  duoWaitingBadge: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#F59E0B',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  duoPlayerName: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: AppColors.textPrimary,
+  },
+  duoPlayerRole: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: AppColors.textSecondary,
+    marginTop: 2,
+  },
+  duoConnector: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  duoConnectorText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: AppColors.textSecondary,
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  duoLobbyHint: {
+    fontSize: 11.5,
+    color: AppColors.textSecondary,
+    textAlign: 'center',
+    marginTop: 10,
+    fontWeight: '500',
+  },
+
+  // TOD DUO STYLES
+  deckCountBadge: {
+    backgroundColor: '#FFE8EC',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  deckCountBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: AppColors.primary,
+  },
+  duoTurnBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 245, 247, 0.85)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    marginBottom: 10,
+  },
+  duoTurnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  duoTurnLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: AppColors.textSecondary,
+    marginRight: 6,
+    letterSpacing: 0.5,
+  },
+  duoTurnBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  duoTurnBadgeUser: {
+    backgroundColor: '#FFE8EC',
+  },
+  duoTurnBadgePartner: {
+    backgroundColor: '#EDE9FE',
+  },
+  duoTurnBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  shuffleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#8B5CF6',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  shuffleBtnDisabled: {
+    opacity: 0.6,
+  },
+  shuffleBtnText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  cardSubNotice: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B3929C',
+    marginTop: 8,
+  },
+  cardBackCategoryBadge: {
+    backgroundColor: '#FFE8EC',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  cardBackCategoryText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: AppColors.primary,
+    letterSpacing: 0.5,
+  },
+  duoActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  duoSecondaryActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFD6DF',
+  },
+  duoSecondaryActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: AppColors.primary,
+  },
+  answerInputContainer: {
+    backgroundColor: 'rgba(255, 245, 247, 0.85)',
+    borderRadius: 14,
+    padding: 10,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#FFD6DF',
+  },
+  answerInputTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: AppColors.textPrimary,
+    marginBottom: 6,
+  },
+  answerTextInput: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 13,
+    color: AppColors.textPrimary,
+    minHeight: 50,
+    borderWidth: 1,
+    borderColor: '#F3E8EC',
+  },
+  answerSubmitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppColors.primary,
+    borderRadius: 10,
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  answerSubmitBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  savedAnswerCard: {
+    backgroundColor: '#FFF0F3',
+    borderRadius: 12,
+    padding: 10,
+    marginVertical: 6,
+    borderWidth: 1,
+    borderColor: '#FFCAD4',
+  },
+  savedAnswerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  savedAnswerLabel: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: AppColors.primary,
+  },
+  savedAnswerText: {
+    fontSize: 13,
+    color: AppColors.textPrimary,
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
+  todFooterBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+
+  // INVITE MODAL STYLES
+  modalSubtitle: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginTop: 1,
+  },
+  inviteBox: {
+    backgroundColor: 'rgba(255, 245, 247, 0.8)',
+    borderRadius: 16,
+    padding: 14,
+    marginVertical: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFD6DF',
+  },
+  inviteBoxLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: AppColors.textSecondary,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  inviteCodeDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 8,
+  },
+  inviteCodeText: {
+    fontFamily: AppFonts.title,
+    fontSize: 24,
+    color: AppColors.primary,
+    letterSpacing: 2,
+  },
+  copyCodeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+  },
+  copyCodeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  partnerStatusCard: {
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginVertical: 8,
+    borderWidth: 1.5,
+  },
+  partnerStatusConnected: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  partnerStatusWaiting: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  partnerStatusIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  partnerStatusTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: AppColors.textPrimary,
+    marginBottom: 4,
+  },
+  partnerStatusDesc: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    lineHeight: 17,
+  },
+  togglePartnerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginVertical: 6,
+  },
+  togglePartnerBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  dbNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    borderRadius: 12,
+    padding: 10,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  dbNoticeText: {
+    fontSize: 11,
+    color: '#4338CA',
+    lineHeight: 16,
+    flex: 1,
+    fontWeight: '500',
+  },
+
+  // ENHANCED GAME ROOM & IN-GAME INVITE STYLES
+  gameToastBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppColors.primary,
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginVertical: 6,
+  },
+  gameToastText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  newCodePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 232, 236, 0.85)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    gap: 4,
+  },
+  newCodePillText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: AppColors.primary,
+  },
+  joinCodeBox: {
+    backgroundColor: 'rgba(255, 245, 247, 0.8)',
+    borderRadius: 16,
+    padding: 12,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#FFD6DF',
+  },
+  joinCodeLabel: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: AppColors.textSecondary,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  joinInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  joinTextInput: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    fontSize: 13,
+    fontWeight: '700',
+    color: AppColors.textPrimary,
+    borderWidth: 1,
+    borderColor: '#F3CCD5',
+  },
+  pasteCodeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 232, 236, 0.9)',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  pasteCodeBtnText: {
+    color: AppColors.primary,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  joinSubmitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.primary,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    gap: 4,
+  },
+  joinSubmitBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12.5,
+  },
+  inGameInviteCard: {
+    backgroundColor: 'rgba(245, 243, 255, 0.85)',
+    borderRadius: 16,
+    padding: 12,
+    marginVertical: 8,
+    borderWidth: 1.2,
+    borderColor: '#DDD6FE',
+  },
+  inGamePartnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inGameAvatarCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    borderWidth: 1.5,
+    borderColor: '#C4B5FD',
+  },
+  inGameAvatarEmoji: {
+    fontSize: 18,
+  },
+  onlineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  inGamePartnerName: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: AppColors.textPrimary,
+  },
+  inGamePartnerStatus: {
+    fontSize: 11,
+    color: AppColors.textSecondary,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  inGameInviteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#7C3AED',
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  inGameInviteBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  simulateIncomingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    marginTop: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#C4B5FD',
+  },
+  simulateIncomingText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+  permanentAccountNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(243, 244, 246, 0.9)',
+    borderRadius: 12,
+    padding: 9,
+    marginVertical: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  permanentAccountNoticeText: {
+    fontSize: 11,
+    color: '#4B5563',
+    flex: 1,
+    lineHeight: 15,
+  },
+
+  // FLOATING IN-GAME INVITE POP-UP
+  invitePopupCard: {
+    width: '88%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 22,
+    alignItems: 'center',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 18,
+    elevation: 10,
+    borderWidth: 2,
+    borderColor: '#DDD6FE',
+  },
+  invitePopupIconBadge: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F5F3FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#DDD6FE',
+  },
+  invitePopupHeader: {
+    fontFamily: AppFonts.title,
+    fontSize: 22,
+    color: AppColors.textPrimary,
+    marginBottom: 6,
+  },
+  invitePopupBody: {
+    fontSize: 13.5,
+    color: AppColors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 14,
+  },
+  popupRoomCodePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    marginBottom: 18,
+    gap: 6,
+  },
+  popupRoomCodeLabel: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#6B7280',
+    letterSpacing: 0.5,
+  },
+  popupRoomCodeValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: AppColors.primary,
+    letterSpacing: 1.5,
+  },
+  invitePopupActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  popupDeclineBtn: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  popupDeclineBtnText: {
+    color: '#6B7280',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  popupAcceptBtn: {
+    flex: 1.4,
+    flexDirection: 'row',
+    backgroundColor: '#7C3AED',
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  popupAcceptBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13.5,
   },
 });
 

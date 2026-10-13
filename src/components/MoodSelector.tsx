@@ -27,6 +27,7 @@ interface MoodSelectorProps {
   partnerMood: string;
   partnerName: string;
   onSelectMood: (moodString: string) => void;
+  onTogglePartnerMood?: () => void;
 }
 
 export const MoodSelector: React.FC<MoodSelectorProps> = ({
@@ -34,6 +35,7 @@ export const MoodSelector: React.FC<MoodSelectorProps> = ({
   partnerMood,
   partnerName,
   onSelectMood,
+  onTogglePartnerMood,
 }) => {
   const handleMoodPress = (mood: MoodOption) => {
     try {
@@ -44,32 +46,64 @@ export const MoodSelector: React.FC<MoodSelectorProps> = ({
     onSelectMood(`${mood.label} ${mood.emoji}`);
   };
 
-  const hasPartnerMood = Boolean(
-    partnerMood &&
-      partnerMood.trim().length > 0 &&
-      !partnerMood.toLowerCase().includes('waiting')
-  );
+  const effectivePartnerMood = partnerMood && partnerMood.trim().length > 0 && !partnerMood.toLowerCase().includes('waiting')
+    ? partnerMood
+    : 'Cuddly 🧸';
 
   return (
     <View style={styles.container}>
-      {/* Partner Live Mood Card: Only shown when partner actually set a mood */}
-      {hasPartnerMood ? (
-        <View style={styles.partnerMoodCard}>
-          <View style={styles.partnerMoodHeader}>
-            <View style={styles.pulseDot} />
-            <Text style={styles.partnerLabel}>{partnerName}'s Mood Today</Text>
+      {/* Duo Couple Mood Status Card: Shows both My Mood and Partner's Mood Side-by-Side */}
+      <View style={styles.duoMoodCard}>
+        {/* User's Mood */}
+        <View style={styles.duoMoodSide}>
+          <View style={styles.duoMoodAvatarCircle}>
+            <Text style={{ fontSize: 16 }}>💖</Text>
           </View>
-          <View style={styles.partnerMoodContent}>
-            <View style={styles.partnerMoodRow}>
-              <AnimatedGifEmoji emoji={partnerMood} size={32} style={styles.partnerEmojiSpacing} />
-              <Text style={styles.partnerMoodValue}>{partnerMood}</Text>
-            </View>
-            <View style={styles.heartGlowIcon}>
-              <Ionicons name="sparkles" size={14} color="#FF6575" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.duoMoodOwnerLabel}>YOUR MOOD (YOU)</Text>
+            <View style={styles.duoMoodRow}>
+              <AnimatedGifEmoji emoji={currentMood} size={20} style={{ marginRight: 5 }} />
+              <Text style={styles.duoMoodText} numberOfLines={1}>
+                {currentMood || 'Loving 🥰'}
+              </Text>
             </View>
           </View>
         </View>
-      ) : null}
+
+        {/* Sync Heart Divider */}
+        <View style={styles.duoMoodDivider}>
+          <Ionicons name="heart" size={16} color={AppColors.primary} />
+          <Text style={styles.duoMoodDividerText}>SYNCED</Text>
+        </View>
+
+        {/* Partner's Mood */}
+        <TouchableOpacity
+          style={styles.duoMoodSide}
+          onPress={() => {
+            if (onTogglePartnerMood) {
+              onTogglePartnerMood();
+            }
+          }}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.duoMoodAvatarCircle, { backgroundColor: '#F3E8FF' }]}>
+            <Text style={{ fontSize: 16 }}>🌸</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.duoMoodOwnerLabel} numberOfLines={1}>
+                {partnerName.toUpperCase()}'S MOOD
+              </Text>
+            </View>
+            <View style={styles.duoMoodRow}>
+              <AnimatedGifEmoji emoji={effectivePartnerMood} size={20} style={{ marginRight: 5 }} />
+              <Text style={styles.duoMoodText} numberOfLines={1}>
+                {effectivePartnerMood}
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
 
       {/* Horizontal Mood Selector for User */}
       <View style={styles.selectorHeader}>
@@ -120,6 +154,68 @@ export const MoodSelector: React.FC<MoodSelectorProps> = ({
 const styles = StyleSheet.create({
   container: {
     marginVertical: 8,
+  },
+  duoMoodCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: '#E297A5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  duoMoodSide: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  duoMoodAvatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFE8EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  duoMoodOwnerLabel: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: AppColors.textSecondary,
+    letterSpacing: 0.5,
+  },
+  duoMoodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  duoMoodText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: AppColors.textPrimary,
+  },
+  duoMoodDivider: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  duoMoodDividerText: {
+    fontSize: 8.5,
+    fontWeight: '900',
+    color: AppColors.primary,
+    letterSpacing: 0.5,
+    marginTop: 2,
   },
   partnerMoodCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.58)',

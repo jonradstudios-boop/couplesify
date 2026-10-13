@@ -24,6 +24,7 @@ interface DoodleScreenProps {
 export const DoodleScreen: React.FC<DoodleScreenProps> = ({ onBack }) => {
   const [activeDoodle, setActiveDoodle] = useState<SharedDoodle | null>(null);
   const [partnerName, setPartnerName] = useState<string>('Partner');
+  const [userName, setUserName] = useState<string>('You');
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,6 +34,7 @@ export const DoodleScreen: React.FC<DoodleScreenProps> = ({ onBack }) => {
   const loadDoodle = async () => {
     const profile = await StorageService.getProfile();
     if (profile?.partnerName) setPartnerName(profile.partnerName);
+    if (profile?.userName) setUserName(profile.userName);
     const saved = await StorageService.getSharedDoodle();
     if (saved) {
       setActiveDoodle(saved);
@@ -44,6 +46,27 @@ export const DoodleScreen: React.FC<DoodleScreenProps> = ({ onBack }) => {
     const result = await WidgetSyncService.syncDoodleToWidget(newDoodle);
     setSyncStatus(result.message);
     setTimeout(() => setSyncStatus(null), 3500);
+  };
+
+  const handleClearCanvas = async () => {
+    setActiveDoodle(null);
+    await StorageService.saveSharedDoodle(null);
+    setSyncStatus('Widget canvas cleared!');
+    setTimeout(() => setSyncStatus(null), 3000);
+  };
+
+  const handleReplyCanvas = async () => {
+    const blankReply: SharedDoodle = {
+      id: `doodle-${Date.now()}`,
+      strokes: [],
+      updatedAt: Date.now(),
+      author: userName || 'You',
+      previewEmoji: '🎨',
+    };
+    setActiveDoodle(blankReply);
+    await StorageService.saveSharedDoodle(blankReply);
+    setSyncStatus(`Drawing your reply for ${partnerName}! 🎨`);
+    setTimeout(() => setSyncStatus(null), 3000);
   };
 
   return (
@@ -79,6 +102,23 @@ export const DoodleScreen: React.FC<DoodleScreenProps> = ({ onBack }) => {
             </View>
           )}
 
+          {/* Attribution Tag Header */}
+          <View style={styles.attributionCard}>
+            <View style={styles.attributionIconCircle}>
+              <Ionicons name="color-palette" size={16} color={AppColors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.attributionTitle}>
+                {activeDoodle?.strokes && activeDoodle.strokes.length > 0
+                  ? `${activeDoodle.author || partnerName} has drawn this widget 🎨`
+                  : `Draw for ${partnerName}'s home screen widget! 🎨`}
+              </Text>
+              <Text style={styles.attributionSub}>
+                Synced with lockscreen & home widgets
+              </Text>
+            </View>
+          </View>
+
           {/* Tips Pill */}
           <View style={styles.tipsPill}>
             <Ionicons name="sparkles" size={14} color={AppColors.primary} />
@@ -91,9 +131,32 @@ export const DoodleScreen: React.FC<DoodleScreenProps> = ({ onBack }) => {
           <DoodleCanvas
             initialStrokes={activeDoodle?.strokes || []}
             onSave={handleSaveDoodle}
-            height={380}
+            height={420}
             isCompact={false}
+            author={userName || 'You'}
+            onClear={handleClearCanvas}
           />
+
+          {/* Reply & Clear Action Buttons */}
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={styles.replyBtn}
+              onPress={handleReplyCanvas}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="arrow-undo" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.replyBtnText}>Reply with Doodle</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.clearBtn}
+              onPress={handleClearCanvas}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="trash-outline" size={15} color="#FF6575" style={{ marginRight: 6 }} />
+              <Text style={styles.clearBtnText}>Clear Canvas</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={{ height: 120 }} />
         </ScrollView>
@@ -206,6 +269,81 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
     fontWeight: '500',
     lineHeight: 16,
+  },
+  attributionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 18,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    gap: 10,
+    shadowColor: '#E297A5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  attributionIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255, 232, 236, 0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attributionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: AppColors.textPrimary,
+  },
+  attributionSub: {
+    fontSize: 11,
+    color: AppColors.textSecondary,
+    marginTop: 1,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+    gap: 12,
+  },
+  replyBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppColors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  replyBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13.5,
+  },
+  clearBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 235, 238, 0.9)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 205, 210, 0.9)',
+  },
+  clearBtnText: {
+    color: '#FF6575',
+    fontWeight: '700',
+    fontSize: 13.5,
   },
 });
 

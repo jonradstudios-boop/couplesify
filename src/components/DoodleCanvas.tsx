@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   PanResponder,
   GestureResponderEvent,
+  Platform,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,6 +19,8 @@ interface DoodleCanvasProps {
   onSave?: (doodle: SharedDoodle) => void;
   height?: number;
   isCompact?: boolean;
+  author?: string;
+  onClear?: () => void;
 }
 
 const PALETTE = [
@@ -41,6 +44,8 @@ export const DoodleCanvas: React.FC<DoodleCanvasProps> = ({
   onSave,
   height = 340,
   isCompact = false,
+  author = 'You',
+  onClear,
 }) => {
   const [strokes, setStrokes] = useState<DoodleStroke[]>(initialStrokes);
   const [undoneStrokes, setUndoneStrokes] = useState<DoodleStroke[]>([]);
@@ -49,6 +54,27 @@ export const DoodleCanvas: React.FC<DoodleCanvasProps> = ({
   const [brushSize, setBrushSize] = useState<number>(6);
   const [isEraser, setIsEraser] = useState<boolean>(false);
   const [isSent, setIsSent] = useState<boolean>(false);
+
+  const canvasRef = useRef<View>(null);
+  const [canvasLayout, setCanvasLayout] = useState<{ width: number; height: number }>({
+    width: 0,
+    height: 0,
+  });
+
+  const selectedColorRef = useRef(selectedColor);
+  selectedColorRef.current = selectedColor;
+  const brushSizeRef = useRef(brushSize);
+  brushSizeRef.current = brushSize;
+  const isEraserRef = useRef(isEraser);
+  isEraserRef.current = isEraser;
+  const strokesRef = useRef(strokes);
+  strokesRef.current = strokes;
+
+  useEffect(() => {
+    if (initialStrokes && initialStrokes.length > 0) {
+      setStrokes(initialStrokes);
+    }
+  }, [initialStrokes]);
 
   // SVG Path generator from points with bezier smoothing
   const pointsToSvgPath = (points: { x: number; y: number }[]): string => {
@@ -70,34 +96,75 @@ export const DoodleCanvas: React.FC<DoodleCanvasProps> = ({
     return path;
   };
 
+  const getCanvasPoint = (evt: GestureResponderEvent): { x: number; y: number } => {
+    const nativeEvt = evt.nativeEvent as any;
+    // On web, calculate exact coordinates relative to canvas using getBoundingClientRect
+    if (canvasRef.current && typeof (canvasRef.current as any).getBoundingClientRect === 'function') {
+      const rect = (canvasRef.current as any).getBoundingClientRect();
+      if (rect) {
+        const clientX =
+          nativeEvt.clientX ??
+          nativeEvt.touches?.[0]?.clientX ??
+          nativeEvt.changedTouches?.[0]?.clientX ??
+          nativeEvt.pageX;
+        const clientY =
+          nativeEvt.clientY ??
+          nativeEvt.touches?.[0]?.clientY ??
+          nativeEvt.changedTouches?.[0]?.clientY ??
+          nativeEvt.pageY;
+        if (typeof clientX === 'number' && typeof clientY === 'number') {
+          return {
+            x: Math.round(Math.max(0, Math.min(rect.width, clientX - rect.left))),
+            y: Math.round(Math.max(0, Math.min(rect.height, clientY - rect.top))),
+          };
+        }
+      }
+    }
+    // Native mobile fallback (iOS / Android)
+    return {
+      x: Math.round(nativeEvt.locationX ?? 0),
+      y: Math.round(nativeEvt.locationY ?? 0),
+    };
+  };
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt: GestureResponderEvent) => {
-        const { locationX, locationY } = evt.nativeEvent;
+        const pt = getCanvasPoint(evt);
         const newStroke: DoodleStroke = {
-          points: [{ x: locationX, y: locationY }],
-          color: isEraser ? '#FFFDFD' : selectedColor,
-          width: isEraser ? brushSize * 3 : brushSize,
+          points: [pt],
+          color: isEraserRef.current ? '#FFFDFD' : selectedColorRef.current,
+          width: isEraserRef.current ? brushSizeRef.current * 3 : brushSizeRef.current,
         };
         setCurrentStroke(newStroke);
       },
       onPanResponderMove: (evt: GestureResponderEvent) => {
-        const { locationX, locationY } = evt.nativeEvent;
+        const pt = getCanvasPoint(evt);
         setCurrentStroke((prev) => {
           if (!prev) return null;
           return {
             ...prev,
-            points: [...prev.points, { x: locationX, y: locationY }],
+            points: [...prev.points, pt],
           };
         });
       },
       onPanResponderRelease: () => {
         setCurrentStroke((prev) => {
           if (prev && prev.points.length > 0) {
-            setStrokes((all) => [...all, prev]);
+            const nextStrokes = [...strokesRef.current, prev];
+            setStrokes(nextStrokes);
             setUndoneStrokes([]);
+            if (isCompact && onSave) {
+              onSave({
+                id: `doodle-${Date.now()}`,
+                strokes: nextStrokes,
+                updatedAt: Date.now(),
+                author: author || 'You',
+                previewEmoji: '🎨',
+              });
+            }
           }
           return null;
         });
@@ -111,8 +178,18 @@ export const DoodleCanvas: React.FC<DoodleCanvasProps> = ({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
     const last = strokes[strokes.length - 1];
-    setStrokes((prev) => prev.slice(0, prev.length - 1));
+    const nextStrokes = strokes.slice(0, strokes.length - 1);
+    setStrokes(nextStrokes);
     setUndoneStrokes((prev) => [...prev, last]);
+    if (isCompact && onSave) {
+      onSave({
+        id: `doodle-${Date.now()}`,
+        strokes: nextStrokes,
+        updatedAt: Date.now(),
+        author: author || 'You',
+        previewEmoji: '🎨',
+      });
+    }
   };
 
   const handleRedo = () => {
@@ -122,7 +199,17 @@ export const DoodleCanvas: React.FC<DoodleCanvasProps> = ({
     } catch {}
     const toRestore = undoneStrokes[undoneStrokes.length - 1];
     setUndoneStrokes((prev) => prev.slice(0, prev.length - 1));
-    setStrokes((prev) => [...prev, toRestore]);
+    const nextStrokes = [...strokes, toRestore];
+    setStrokes(nextStrokes);
+    if (isCompact && onSave) {
+      onSave({
+        id: `doodle-${Date.now()}`,
+        strokes: nextStrokes,
+        updatedAt: Date.now(),
+        author: author || 'You',
+        previewEmoji: '🎨',
+      });
+    }
   };
 
   const handleClear = () => {
@@ -131,7 +218,17 @@ export const DoodleCanvas: React.FC<DoodleCanvasProps> = ({
     } catch {}
     setStrokes([]);
     setUndoneStrokes([]);
-    setIsSent(false);
+    setCurrentStroke(null);
+    onClear?.();
+    if (isCompact && onSave) {
+      onSave({
+        id: `doodle-${Date.now()}`,
+        strokes: [],
+        updatedAt: Date.now(),
+        author: author || 'You',
+        previewEmoji: '🎨',
+      });
+    }
   };
 
   const handleSendToWidget = () => {
@@ -142,7 +239,7 @@ export const DoodleCanvas: React.FC<DoodleCanvasProps> = ({
       id: `doodle-${Date.now()}`,
       strokes,
       updatedAt: Date.now(),
-      author: 'You',
+      author: author || 'You',
       previewEmoji: '🎨',
     };
     if (onSave) {
@@ -156,10 +253,27 @@ export const DoodleCanvas: React.FC<DoodleCanvasProps> = ({
     <View style={styles.container}>
       {/* Canvas Drawing Surface */}
       <View
+        ref={canvasRef}
         style={[styles.canvasSurface, { height }]}
+        onLayout={(e) => {
+          const { width: w, height: h } = e.nativeEvent.layout;
+          if (w > 0 && h > 0) {
+            setCanvasLayout({ width: w, height: h });
+          }
+        }}
         {...panResponder.panHandlers}
       >
-        <Svg style={StyleSheet.absoluteFill}>
+        <Svg
+          width="100%"
+          height="100%"
+          viewBox={
+            canvasLayout.width > 0 && canvasLayout.height > 0
+              ? `0 0 ${canvasLayout.width} ${canvasLayout.height}`
+              : undefined
+          }
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        >
           {strokes.map((stroke, index) => (
             <Path
               key={`stroke-${index}`}
@@ -198,7 +312,53 @@ export const DoodleCanvas: React.FC<DoodleCanvasProps> = ({
         )}
       </View>
 
-      {/* Drawing Controls Strip */}
+      {/* Compact Mini Toolbar for Embedded Modal View */}
+      {isCompact && (
+        <View style={styles.compactControlsRow}>
+          <View style={styles.compactPaletteRow}>
+            {PALETTE.slice(0, 5).map((color) => {
+              const isSelected = selectedColor === color && !isEraser;
+              return (
+                <TouchableOpacity
+                  key={color}
+                  style={[
+                    styles.compactColorDot,
+                    { backgroundColor: color },
+                    isSelected && styles.compactColorDotSelected,
+                  ]}
+                  onPress={() => {
+                    setIsEraser(false);
+                    setSelectedColor(color);
+                  }}
+                  activeOpacity={0.7}
+                />
+              );
+            })}
+          </View>
+          <View style={styles.compactActionsRow}>
+            <TouchableOpacity
+              onPress={handleUndo}
+              style={[styles.compactIconBtn, strokes.length === 0 && styles.disabledBtn]}
+              disabled={strokes.length === 0}
+            >
+              <Feather name="corner-up-left" size={16} color={AppColors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleClear} style={styles.compactIconBtn}>
+              <Ionicons name="trash-outline" size={16} color="#FF6575" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSendToWidget}
+              style={styles.compactSaveBtn}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="cloud-upload-outline" size={14} color="#FFFFFF" />
+              <Text style={styles.compactSaveBtnText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Full Drawing Controls Strip for Fullscreen Mode */}
       {!isCompact && (
         <View style={styles.controlsSection}>
           {/* Color Palette Picker & Eraser */}
@@ -307,7 +467,7 @@ const styles = StyleSheet.create({
   },
   canvasSurface: {
     width: '100%',
-    backgroundColor: 'rgba(255, 253, 253, 0.72)',
+    backgroundColor: 'rgba(255, 253, 253, 0.88)',
     borderRadius: 24,
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.95)',
@@ -318,6 +478,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 16,
     elevation: 3,
+    ...(Platform.OS === 'web' ? ({ touchAction: 'none', cursor: 'crosshair' } as any) : {}),
   },
   placeholderOverlay: {
     position: 'absolute',
@@ -355,6 +516,67 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
   },
+
+  // Compact Controls
+  compactControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingHorizontal: 4,
+  },
+  compactPaletteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  compactColorDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E8D2D6',
+  },
+  compactColorDotSelected: {
+    borderColor: AppColors.textPrimary,
+    borderWidth: 2.5,
+    transform: [{ scale: 1.2 }],
+  },
+  compactActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  compactIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  compactSaveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: AppColors.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  compactSaveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Fullscreen Controls
   controlsSection: {
     marginTop: 14,
     gap: 12,

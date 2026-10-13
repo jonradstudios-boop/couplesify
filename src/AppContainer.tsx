@@ -6,21 +6,34 @@ import GamesScreen from './screens/GamesScreen';
 import MemoryScreen from './screens/MemoryScreen';
 import ChatScreen from './screens/ChatScreen';
 import DoodleScreen from './screens/DoodleScreen';
+import AuthScreen from './screens/AuthScreen';
+import AppOpeningSplash from './components/AppOpeningSplash';
 import LoveNudgeModal from './components/LoveNudgeModal';
 import PairingModal from './components/PairingModal';
 import StorageService, { CoupleProfile } from './services/StorageService';
+import AuthService from './services/AuthService';
 import AppColors from './theme/AppColors';
 
 export const AppContainer: React.FC = () => {
+  const [showSplash, setShowSplash] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [isDoodleFullscreen, setIsDoodleFullscreen] = useState(false);
+  const [isSpicyActive, setIsSpicyActive] = useState(false);
   const [isNudgeModalOpen, setIsNudgeModalOpen] = useState(false);
   const [isPairingModalOpen, setIsPairingModalOpen] = useState(false);
   const [profile, setProfile] = useState<CoupleProfile | null>(null);
 
   useEffect(() => {
-    loadProfile();
+    checkAuthAndProfile();
   }, []);
+
+  const checkAuthAndProfile = async () => {
+    const loggedIn = await AuthService.isUserLoggedIn();
+    setIsAuthenticated(loggedIn);
+    const prof = await StorageService.getProfile();
+    setProfile(prof);
+  };
 
   const loadProfile = async () => {
     const prof = await StorageService.getProfile();
@@ -31,6 +44,40 @@ export const AppContainer: React.FC = () => {
     setProfile(updated);
     await StorageService.saveProfile(updated);
   };
+
+  const handleLogout = async () => {
+    await AuthService.logout();
+    setIsAuthenticated(false);
+    setIsPairingModalOpen(false);
+  };
+
+  // 1. Show Uber/Ola-style luxury app opening animation on startup
+  if (showSplash) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFE6EC" />
+        <AppOpeningSplash onFinish={() => setShowSplash(false)} />
+      </View>
+    );
+  }
+
+  // 2. If not authenticated, present the Login & Registration screen
+  if (!isAuthenticated) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFEBF0" />
+        <AuthScreen
+          onAuthSuccess={async () => {
+            await loadProfile();
+            setIsAuthenticated(true);
+          }}
+          onSkip={() => {
+            setIsAuthenticated(true);
+          }}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -50,7 +97,9 @@ export const AppContainer: React.FC = () => {
             />
           )}
 
-          {activeTab === 'games' && <GamesScreen />}
+          {activeTab === 'games' && (
+            <GamesScreen onSpicyModeChange={setIsSpicyActive} />
+          )}
 
           {activeTab === 'memories' && <MemoryScreen />}
 
@@ -63,8 +112,8 @@ export const AppContainer: React.FC = () => {
         </View>
       )}
 
-      {/* Persistent Floating Bottom Bar */}
-      {!isDoodleFullscreen && (
+      {/* Persistent Floating Bottom Bar (hidden inside full-screen immersive views like Spicy Games & Doodling) */}
+      {!isDoodleFullscreen && !(activeTab === 'games' && isSpicyActive) && (
         <CustomBottomBar
           activeTab={activeTab}
           onTabPress={(tab) => {
@@ -100,6 +149,7 @@ export const AppContainer: React.FC = () => {
           profile={profile}
           onClose={() => setIsPairingModalOpen(false)}
           onSaveProfile={handleSaveProfile}
+          onLogout={handleLogout}
         />
       )}
     </View>

@@ -46,9 +46,12 @@
       [
         "expo-font",
         {
-          "fonts": ["./assets/fonts/MatchaStyle.ttf"]
+          "fonts": [
+            "./assets/fonts/MatchaStyle.ttf"
+          ]
         }
-      ]
+      ],
+      "expo-sharing"
     ]
   }
 }

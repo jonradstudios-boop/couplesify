@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
 import CoupleAvatarRing from '../components/CoupleAvatarRing';
@@ -87,6 +88,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     await RealtimeService.broadcastMood(newMood);
   };
 
+  const handleTogglePartnerMood = async () => {
+    const moods = ['Cuddly 🧸', 'Loving 🥰', 'Needy 🥺', 'Sleepy 😴', 'Excited 🥳'];
+    const currentIdx = moods.indexOf(partnerMood);
+    const nextMood = moods[(currentIdx + 1) % moods.length];
+    setPartnerMood(nextMood);
+    await StorageService.setPartnerMood(nextMood);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+  };
+
   return (
     <LinearGradient
       colors={['#FCE8EC', '#FFF7F8']}
@@ -159,7 +171,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <View style={styles.snapTeaserHeader}>
                 <View style={styles.snapTeaserTitleRow}>
                   <Feather name="camera" size={15} color={AppColors.primary} />
-                  <Text style={styles.snapTeaserLabel}>Sweet Snap for Partner</Text>
+                  <Text style={styles.snapTeaserLabel}>
+                    {activeSnap.author ? `${activeSnap.author} sent this snap 📸` : 'Sweet Snap for Partner'}
+                  </Text>
                 </View>
                 <View style={styles.snapTeaserTimerChip}>
                   <Ionicons name="time-outline" size={12} color="#FF6575" />
@@ -171,7 +185,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <Image source={{ uri: activeSnap.imageUri }} style={styles.snapTeaserImage} />
                 <View style={styles.snapTeaserBadge}>
                   <Ionicons name="heart" size={12} color="#FF6575" />
-                  <Text style={styles.snapTeaserBadgeText}>Tap central ❤️ for Heart Hub</Text>
+                  <Text style={styles.snapTeaserBadgeText}>Tap ❤️ to View & Reply</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -183,11 +197,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             partnerMood={partnerMood}
             partnerName={profile?.isPaired ? profile.partnerName : 'Partner'}
             onSelectMood={handleSelectMood}
+            onTogglePartnerMood={handleTogglePartnerMood}
           />
 
           {/* "Our Memories Today" Teaser */}
           <View style={styles.memoriesTeaserHeader}>
-            <Text style={styles.teaserSectionTitle}>Our Memories Today</Text>
+            <View>
+              <Text style={styles.teaserSectionTitle}>Our Memories Today</Text>
+              <Text style={styles.memoriesSubtag}>Shared with {profile?.partnerName || 'Partner'} 💕</Text>
+            </View>
             <TouchableOpacity onPress={onNavigateToMemories}>
               <Text style={styles.seeAllText}>View Scrapbook &gt;</Text>
             </TouchableOpacity>
@@ -391,6 +409,12 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.title,
     fontSize: 20,
     color: AppColors.textPrimary,
+  },
+  memoriesSubtag: {
+    fontSize: 11,
+    color: AppColors.textSecondary,
+    marginTop: 2,
+    fontWeight: '500',
   },
   seeAllText: {
     fontSize: 12,

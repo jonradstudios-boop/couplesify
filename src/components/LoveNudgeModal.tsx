@@ -18,7 +18,6 @@ import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
 import FallingHeartsBackground from './FallingHeartsBackground';
 import DoodleCanvas from './DoodleCanvas';
-import AnimatedGifEmoji from './AnimatedGifEmoji';
 import StorageService, {
   CoupleProfile,
   EphemeralSnap,
@@ -37,13 +36,6 @@ interface LoveNudgeModalProps {
   onOpenDoodle?: () => void;
 }
 
-const NUDGE_ACTIONS = [
-  { id: 'squeeze', title: 'Warm Squeeze', emoji: '🤗', text: 'sent you a warm squeeze! 💕' },
-  { id: 'miss_you', title: 'Miss You Ping', emoji: '💌', text: 'is missing you right now! ✨' },
-  { id: 'kiss', title: 'Kiss Alert', emoji: '💋', text: 'sent you a sweet kiss! 💖' },
-  { id: 'cuddle', title: 'Cuddle Request', emoji: '🧸', text: 'wants endless cuddles! 🥺' },
-];
-
 const SEVEN_HOURS_MS = 7 * 60 * 60 * 1000;
 
 export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
@@ -53,6 +45,7 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
   profile,
   onSaveProfile,
   onClose,
+  onOpenDoodle,
 }) => {
   // Ephemeral Snap (7h Reset)
   const [snap, setSnap] = useState<EphemeralSnap | null>(null);
@@ -140,16 +133,21 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
       });
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
+        const isReply = !!snap;
         const newSnap: EphemeralSnap = {
           id: `snap-${Date.now()}`,
           imageUri: res.assets[0].uri,
           timestamp: Date.now(),
           author: userName || 'You',
-          caption: 'Uploaded with love 💕',
+          caption: isReply ? `Reply to ${snap?.author || partnerName} 💕` : 'Uploaded with love 💕',
         };
         setSnap(newSnap);
         await StorageService.saveEphemeralSnap(newSnap);
-        setSentMessage(`Sent sweet snap to ${partnerName}! Resets in 7h 📸`);
+        setSentMessage(
+          isReply
+            ? `Replied to snap for ${partnerName}! 📸`
+            : `Sent sweet snap to ${partnerName}! Resets in 7h 📸`
+        );
         setTimeout(() => setSentMessage(null), 3000);
       }
     } catch {
@@ -265,6 +263,39 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     setTimeout(() => setSentMessage(null), 3000);
   };
 
+  const handleClearDoodle = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+    setSharedDoodle(null);
+    await StorageService.saveSharedDoodle(null);
+    setSentMessage('Shared doodle cleared! 🎨');
+    setTimeout(() => setSentMessage(null), 2500);
+  };
+
+  const handleReplyDoodle = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    const replyDoodle: SharedDoodle = {
+      id: `doodle-${Date.now()}`,
+      strokes: [],
+      updatedAt: Date.now(),
+      author: userName || 'You',
+      previewEmoji: '🎨',
+    };
+    setSharedDoodle(replyDoodle);
+    await StorageService.saveSharedDoodle(replyDoodle);
+    setSentMessage(`Canvas ready: Draw your reply for ${partnerName}! 🎨`);
+    setTimeout(() => setSentMessage(null), 3000);
+  };
+
+  const handleReplyVoiceNote = () => {
+    handleStartRecordVoice();
+    setSentMessage(`Recording your reply whisper for ${partnerName}... 🎙️`);
+    setTimeout(() => setSentMessage(null), 3000);
+  };
+
   // 4. Sweet Voice Note Handlers
   const handleStartRecordVoice = () => {
     try {
@@ -319,19 +350,29 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     }
   };
 
-  // 5. Love Nudge Handler
-  const handleSendNudge = (action: (typeof NUDGE_ACTIONS)[0]) => {
+  const handleDeleteVoiceNote = () => {
     try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
 
-    const sender = userName && userName !== 'You' ? userName : 'Your partner';
-    RealtimeService.broadcastLoveNudge(`${sender} ${action.text}`);
-    setSentMessage(`Sent "${action.title}" to ${partnerName}! 💕`);
+    const doDelete = async () => {
+      setVoiceNote(null);
+      setIsPlayingVoice(false);
+      await StorageService.saveSweetVoiceNote(null);
+      setSentMessage('Sweet voice whisper deleted! 🗑️');
+      setTimeout(() => setSentMessage(null), 2500);
+    };
 
-    setTimeout(() => {
-      setSentMessage(null);
-    }, 2500);
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Delete this sweet voice whisper? 💕')) {
+        doDelete();
+      }
+    } else {
+      Alert.alert('Delete Voice Note', 'Are you sure you want to delete this sweet voice whisper? 💕', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: doDelete },
+      ]);
+    }
   };
 
   const annivStats = calculateAnniversaryDetails();
@@ -377,7 +418,9 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
               <View style={styles.sectionHeaderRow}>
                 <View style={styles.sectionTitleGroup}>
                   <Feather name="camera" size={17} color={AppColors.primary} />
-                  <Text style={styles.sectionTitle}>Sweet Snap for Partner</Text>
+                  <Text style={styles.sectionTitle}>
+                    {snap ? `${snap.author || partnerName} sent this snap` : 'Sweet Snap for Partner'}
+                  </Text>
                 </View>
                 <View style={styles.timerChip}>
                   <Ionicons name="time-outline" size={12} color="#FF6575" />
@@ -387,7 +430,9 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                 </View>
               </View>
               <Text style={styles.sectionDescription}>
-                A sweet photo to make {partnerName} smile. Disappears after 7 hours!
+                {snap
+                  ? `Sweet snap from ${snap.author || partnerName}. Tap reply to send your photo back!`
+                  : `A sweet photo to make ${partnerName} smile. Disappears after 7 hours!`}
               </Text>
 
               {snap ? (
@@ -395,7 +440,9 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                   <Image source={{ uri: snap.imageUri }} style={styles.snapImage} />
                   <View style={styles.snapOverlayTag}>
                     <Ionicons name="heart" size={12} color="#FF6575" />
-                    <Text style={styles.snapTagText}>For {partnerName} • Active</Text>
+                    <Text style={styles.snapTagText}>
+                      {snap.author || partnerName} sent this sweet snap 📸
+                    </Text>
                   </View>
 
                   <View style={styles.snapActionsRow}>
@@ -404,8 +451,8 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                       onPress={handlePickSweetSnap}
                       activeOpacity={0.8}
                     >
-                      <Feather name="refresh-cw" size={13} color="#FFFFFF" />
-                      <Text style={styles.changeSnapBtnText}>New Snap</Text>
+                      <Feather name="corner-up-left" size={13} color="#FFFFFF" />
+                      <Text style={styles.changeSnapBtnText}>Reply with Snap</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -520,16 +567,34 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
               <View style={styles.sectionHeaderRow}>
                 <View style={styles.sectionTitleGroup}>
                   <Ionicons name="brush" size={17} color={AppColors.primary} />
-                  <Text style={styles.sectionTitle}>Shared Sweet Doodle</Text>
-                </View>
-                <View style={styles.doodleAuthorChip}>
-                  <Text style={styles.doodleAuthorText}>
-                    {sharedDoodle ? `By ${sharedDoodle.author}` : 'Live Canvas'}
+                  <Text style={styles.sectionTitle}>
+                    {sharedDoodle?.strokes && sharedDoodle.strokes.length > 0
+                      ? `${sharedDoodle.author || partnerName} has drawn this 🎨`
+                      : 'Shared Sweet Doodle'}
                   </Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={styles.doodleAuthorChip}>
+                    <Text style={styles.doodleAuthorText}>
+                      {sharedDoodle?.author ? `By ${sharedDoodle.author}` : 'Live Canvas'}
+                    </Text>
+                  </View>
+                  {onOpenDoodle && (
+                    <TouchableOpacity
+                      style={styles.expandDoodleBtn}
+                      onPress={onOpenDoodle}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="expand" size={13} color={AppColors.primary} />
+                      <Text style={styles.expandDoodleText}>Full</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
               <Text style={styles.sectionDescription}>
-                Draw together right here — your shared couple canvas in one place!
+                {sharedDoodle?.author
+                  ? `${sharedDoodle.author} has drawn this widget canvas. Tap Reply to draw your response!`
+                  : `Draw together right here — your shared couple canvas in one place!`}
               </Text>
 
               {/* Embedded Interactive Doodle Canvas */}
@@ -537,10 +602,44 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                 <DoodleCanvas
                   initialStrokes={sharedDoodle?.strokes || []}
                   onSave={handleSaveDoodle}
-                  height={240}
+                  height={280}
                   isCompact={true}
+                  author={userName || 'You'}
+                  onClear={handleClearDoodle}
                 />
               </View>
+
+              {/* Reply & Clear actions toolbar */}
+              <View style={styles.doodleActionToolbar}>
+                <TouchableOpacity
+                  style={styles.doodleReplyBtn}
+                  onPress={handleReplyDoodle}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="corner-up-left" size={13} color="#FFFFFF" />
+                  <Text style={styles.doodleReplyBtnText}>Reply with Doodle</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.doodleClearBtn}
+                  onPress={handleClearDoodle}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="trash-outline" size={14} color="#FF6575" />
+                  <Text style={styles.doodleClearBtnText}>Clear Doodle</Text>
+                </TouchableOpacity>
+              </View>
+
+              {onOpenDoodle && (
+                <TouchableOpacity
+                  style={styles.openFullscreenDoodleBar}
+                  onPress={onOpenDoodle}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="color-palette-outline" size={15} color="#FFFFFF" />
+                  <Text style={styles.openFullscreenDoodleText}>Open Fullscreen Drawing Board 🎨</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* ======================================================== */}
@@ -550,7 +649,11 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
               <View style={styles.sectionHeaderRow}>
                 <View style={styles.sectionTitleGroup}>
                   <MaterialCommunityIcons name="microphone" size={18} color={AppColors.primary} />
-                  <Text style={styles.sectionTitle}>Sweet Voice Note Area</Text>
+                  <Text style={styles.sectionTitle}>
+                    {voiceNote
+                      ? `${voiceNote.senderName || partnerName} recorded this 🎙️`
+                      : 'Sweet Voice Note Area'}
+                  </Text>
                 </View>
                 {voiceNote && (
                   <View style={styles.voiceDurationChip}>
@@ -579,7 +682,7 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
 
                   <View style={styles.voicePlayerInfoCol}>
                     <Text style={styles.voiceSenderTitle}>
-                      Voice Whisper from {voiceNote.senderName} 💌
+                      {voiceNote.senderName || partnerName} recorded this whisper 💌
                     </Text>
                     {/* Simulated dynamic audio waveform bars */}
                     <View style={styles.waveformRow}>
@@ -598,13 +701,24 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                     </View>
                   </View>
 
-                  <TouchableOpacity
-                    style={styles.recordNewVoiceBtn}
-                    onPress={handleStartRecordVoice}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialCommunityIcons name="microphone-plus" size={18} color={AppColors.primary} />
-                  </TouchableOpacity>
+                  <View style={styles.voiceActionsRow}>
+                    <TouchableOpacity
+                      style={styles.replyVoiceBtn}
+                      onPress={handleReplyVoiceNote}
+                      activeOpacity={0.8}
+                    >
+                      <Feather name="corner-up-left" size={12} color="#FFFFFF" />
+                      <Text style={styles.replyVoiceBtnText}>Reply</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.deleteVoiceBtn}
+                      onPress={handleDeleteVoiceNote}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#FF4D67" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ) : null}
 
@@ -643,39 +757,6 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                   </View>
                 </TouchableOpacity>
               ) : null}
-            </View>
-
-            {/* ======================================================== */}
-            {/* SECTION 5: INSTANT LOVE NUDGES                           */}
-            {/* ======================================================== */}
-            <View style={styles.glassSection}>
-              <View style={styles.sectionHeaderRow}>
-                <View style={styles.sectionTitleGroup}>
-                  <Ionicons name="heart-dislike-outline" size={17} color={AppColors.primary} />
-                  <Text style={styles.sectionTitle}>Instant Love Nudges</Text>
-                </View>
-              </View>
-              <Text style={styles.sectionDescription}>
-                One-tap sweet surprise buzzes sent directly to {partnerName}'s phone!
-              </Text>
-
-              <View style={styles.nudgesGrid}>
-                {NUDGE_ACTIONS.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.nudgeBtn}
-                    onPress={() => handleSendNudge(item)}
-                    activeOpacity={0.8}
-                  >
-                    <AnimatedGifEmoji
-                      emoji={item.emoji}
-                      size={44}
-                      style={styles.nudgeEmojiContainer}
-                    />
-                    <Text style={styles.nudgeTitle}>{item.title}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
             </View>
 
             <View style={{ height: 40 }} />
@@ -1059,6 +1140,64 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
   },
+  doodleActionToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    gap: 10,
+  },
+  doodleReplyBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppColors.primary,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    gap: 6,
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  doodleReplyBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12.5,
+  },
+  doodleClearBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 235, 238, 0.9)',
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 205, 210, 0.9)',
+  },
+  doodleClearBtnText: {
+    color: '#FF6575',
+    fontWeight: '700',
+    fontSize: 12.5,
+  },
+  replyVoiceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.primary,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    gap: 4,
+  },
+  replyVoiceBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
+  },
   voiceDurationChip: {
     backgroundColor: 'rgba(255, 232, 236, 0.85)',
     paddingVertical: 3,
@@ -1106,13 +1245,30 @@ const styles = StyleSheet.create({
     width: 3.5,
     borderRadius: 2,
   },
+  voiceActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   recordNewVoiceBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 232, 236, 0.8)',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255, 232, 236, 0.85)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  deleteVoiceBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255, 235, 238, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 205, 210, 0.9)',
   },
   recordingActiveBox: {
     flexDirection: 'row',
@@ -1197,28 +1353,39 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
   },
-  nudgesGrid: {
+  expandDoodleBtn: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  nudgeBtn: {
-    width: '48%',
-    backgroundColor: 'rgba(255, 247, 248, 0.72)',
-    borderRadius: 18,
-    paddingVertical: 14,
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.92)',
+    gap: 4,
+    backgroundColor: '#FFE8EC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  nudgeEmojiContainer: {
-    marginBottom: 6,
+  expandDoodleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: AppColors.primary,
   },
-  nudgeTitle: {
-    fontFamily: AppFonts.title,
-    fontSize: 14,
-    color: AppColors.textPrimary,
+  openFullscreenDoodleBar: {
+    marginTop: 10,
+    backgroundColor: AppColors.primary,
+    borderRadius: 18,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  openFullscreenDoodleText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });
 

@@ -12,6 +12,7 @@ interface CustomBottomBarProps {
   onTabPress: (tab: TabKey) => void;
   onCenterPress: () => void;
   unreadCount?: number;
+  visible?: boolean;
 }
 
 export const CustomBottomBar: React.FC<CustomBottomBarProps> = ({
@@ -19,7 +20,9 @@ export const CustomBottomBar: React.FC<CustomBottomBarProps> = ({
   onTabPress,
   onCenterPress,
   unreadCount = 1,
+  visible = true,
 }) => {
+  if (!visible) return null;
   const triggerHaptic = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

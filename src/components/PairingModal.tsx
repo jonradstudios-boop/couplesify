@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
 import FallingHeartsBackground from './FallingHeartsBackground';
@@ -20,6 +21,7 @@ interface PairingModalProps {
   profile: CoupleProfile;
   onClose: () => void;
   onSaveProfile: (updated: CoupleProfile) => void;
+  onLogout?: () => void;
 }
 
 export const PairingModal: React.FC<PairingModalProps> = ({
@@ -27,6 +29,7 @@ export const PairingModal: React.FC<PairingModalProps> = ({
   profile,
   onClose,
   onSaveProfile,
+  onLogout,
 }) => {
   const [partnerCodeInput, setPartnerCodeInput] = useState('');
   const [userName, setUserName] = useState(profile.userName);
@@ -35,12 +38,23 @@ export const PairingModal: React.FC<PairingModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [pairSuccess, setPairSuccess] = useState(false);
 
-  const handleCopyCode = () => {
+  const handleCopyCode = async () => {
     try {
+      await Clipboard.setStringAsync(profile.inviteCode);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {}
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handlePasteCode = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const str = await Clipboard.getStringAsync();
+      if (str) {
+        setPartnerCodeInput(str.trim().toUpperCase());
+      }
+    } catch {}
   };
 
   const handlePairSubmit = () => {
@@ -131,6 +145,14 @@ export const PairingModal: React.FC<PairingModalProps> = ({
                   autoCapitalize="characters"
                 />
                 <TouchableOpacity
+                  style={styles.pasteBtn}
+                  onPress={handlePasteCode}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="clipboard-outline" size={15} color={AppColors.primary} />
+                  <Text style={styles.pasteBtnText}>Paste</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                   style={styles.linkBtn}
                   onPress={handlePairSubmit}
                   activeOpacity={0.8}
@@ -179,6 +201,20 @@ export const PairingModal: React.FC<PairingModalProps> = ({
               >
                 <Text style={styles.saveBtnText}>Save Preferences</Text>
               </TouchableOpacity>
+
+              {onLogout && (
+                <TouchableOpacity
+                  style={styles.logoutBtn}
+                  onPress={() => {
+                    onClose();
+                    onLogout();
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="log-out-outline" size={16} color="#E05275" />
+                  <Text style={styles.logoutBtnText}>Sign Out / Switch Account</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </ScrollView>
         </View>
@@ -306,6 +342,22 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.95)',
   },
+  pasteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 232, 236, 0.9)',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  pasteBtnText: {
+    color: AppColors.primary,
+    fontWeight: '700',
+    fontSize: 13,
+  },
   linkBtn: {
     backgroundColor: AppColors.lavenderDark,
     paddingVertical: 12,
@@ -360,6 +412,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 14,
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(224, 82, 117, 0.08)',
+    borderRadius: 14,
+    paddingVertical: 12,
+    marginTop: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(224, 82, 117, 0.25)',
+  },
+  logoutBtnText: {
+    color: '#E05275',
+    fontWeight: '700',
+    fontSize: 13,
   },
 });
 
