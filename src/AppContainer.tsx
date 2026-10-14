@@ -8,6 +8,7 @@ import ChatScreen from './screens/ChatScreen';
 import DoodleScreen from './screens/DoodleScreen';
 import AuthScreen from './screens/AuthScreen';
 import AppOpeningSplash from './components/AppOpeningSplash';
+import RedCurtainOpening from './components/RedCurtainOpening';
 import LoveNudgeModal from './components/LoveNudgeModal';
 import PairingModal from './components/PairingModal';
 import StorageService, { CoupleProfile } from './services/StorageService';
@@ -17,6 +18,7 @@ import AppColors from './theme/AppColors';
 
 export const AppContainer: React.FC = () => {
   const [showSplash, setShowSplash] = useState(true);
+  const [showCurtain, setShowCurtain] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [isDoodleFullscreen, setIsDoodleFullscreen] = useState(false);
@@ -77,21 +79,12 @@ export const AppContainer: React.FC = () => {
     setProfile(defaultProfile);
   };
 
-  // 1. Show Uber/Ola-style luxury app opening animation on startup
-  if (showSplash) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFE6EC" />
-        <AppOpeningSplash onFinish={() => setShowSplash(false)} />
-      </View>
-    );
-  }
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FCE8EC" />
 
-  // 2. If not authenticated, present the Login & Registration screen
-  if (!isAuthenticated) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFEBF0" />
+      {/* Screen Views: AuthScreen if logged out, or Main App tabs if authenticated */}
+      {!isAuthenticated ? (
         <AuthScreen
           onAuthSuccess={async () => {
             await loadProfile();
@@ -101,16 +94,7 @@ export const AppContainer: React.FC = () => {
             setIsAuthenticated(true);
           }}
         />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FCE8EC" />
-
-      {/* Screen Views */}
-      {isDoodleFullscreen ? (
+      ) : isDoodleFullscreen ? (
         <DoodleScreen onBack={() => setIsDoodleFullscreen(false)} />
       ) : (
         <View style={styles.screenHost}>
@@ -139,7 +123,7 @@ export const AppContainer: React.FC = () => {
       )}
 
       {/* Persistent Floating Bottom Bar (hidden inside full-screen immersive views like Spicy Games & Doodling) */}
-      {!isDoodleFullscreen && !(activeTab === 'games' && isSpicyActive) && (
+      {isAuthenticated && !isDoodleFullscreen && !(activeTab === 'games' && isSpicyActive) && (
         <CustomBottomBar
           activeTab={activeTab}
           onTabPress={(tab) => {
@@ -155,21 +139,23 @@ export const AppContainer: React.FC = () => {
       )}
 
       {/* Center Love Nudge & Heart Hub Modal */}
-      <LoveNudgeModal
-        visible={isNudgeModalOpen}
-        partnerName={profile?.partnerName || 'Partner'}
-        userName={profile?.userName}
-        profile={profile}
-        onSaveProfile={handleSaveProfile}
-        onClose={() => setIsNudgeModalOpen(false)}
-        onOpenDoodle={() => {
-          setIsNudgeModalOpen(false);
-          setIsDoodleFullscreen(true);
-        }}
-      />
+      {isAuthenticated && (
+        <LoveNudgeModal
+          visible={isNudgeModalOpen}
+          partnerName={profile?.partnerName || 'Partner'}
+          userName={profile?.userName}
+          profile={profile}
+          onSaveProfile={handleSaveProfile}
+          onClose={() => setIsNudgeModalOpen(false)}
+          onOpenDoodle={() => {
+            setIsNudgeModalOpen(false);
+            setIsDoodleFullscreen(true);
+          }}
+        />
+      )}
 
       {/* Pairing & Anniversary Settings Modal */}
-      {profile && (
+      {isAuthenticated && profile && (
         <PairingModal
           visible={isPairingModalOpen}
           profile={profile}
@@ -177,6 +163,16 @@ export const AppContainer: React.FC = () => {
           onSaveProfile={handleSaveProfile}
           onLogout={handleLogout}
         />
+      )}
+
+      {/* 2. Red Velvet Curtain Screen Revealing Animation: Parts to left and right after loading animation */}
+      {showCurtain && !showSplash && (
+        <RedCurtainOpening onFinish={() => setShowCurtain(false)} />
+      )}
+
+      {/* 1. Startup Loading Animation Splash */}
+      {showSplash && (
+        <AppOpeningSplash onFinish={() => setShowSplash(false)} />
       )}
     </View>
   );

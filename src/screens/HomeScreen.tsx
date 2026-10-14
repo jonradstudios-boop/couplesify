@@ -49,8 +49,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
     // Listen to real-time partner mood and snap updates
     const unsubMood = RealtimeService.on('mood', (data) => {
+      // Independent Mood Guard: Ignore mood broadcast if it originated from self
       if (data?.mood) {
+        if (data.senderId && profile?.userName && data.senderId === profile.userName) {
+          return;
+        }
         setPartnerMood(data.mood);
+        StorageService.setPartnerMood(data.mood);
       }
     });
 
@@ -62,7 +67,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       unsubMood();
       unsubSnap();
     };
-  }, []);
+  }, [profile?.userName]);
 
   const loadData = async () => {
     const prof = await StorageService.getProfile();
@@ -72,7 +77,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     const snap = await StorageService.getEphemeralSnap();
 
     setProfile(prof);
-    setUserMood(uMood);
+    setUserMood(uMood || 'Loving 🥰');
     setPartnerMood(pMood);
     setActiveSnap(snap);
     if (memories.length > 0) {
@@ -83,12 +88,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleSelectMood = async (newMood: string) => {
+    // 1. Update ONLY user's own mood - partner's mood remains completely unchanged
     setUserMood(newMood);
     await StorageService.setUserMood(newMood);
-    await RealtimeService.broadcastMood(newMood);
+
+    // 2. Broadcast to partner with senderId so this device ignores echo
+    const sender = profile?.userName || 'me';
+    await RealtimeService.broadcastMood(newMood, sender);
   };
 
   const handleTogglePartnerMood = async () => {
+    // Allows toggling partner mood independently (for testing/demo) without altering user's mood
     const moods = ['Cuddly 🧸', 'Loving 🥰', 'Needy 🥺', 'Sleepy 😴', 'Excited 🥳'];
     const currentIdx = moods.indexOf(partnerMood);
     const nextMood = moods[(currentIdx + 1) % moods.length];

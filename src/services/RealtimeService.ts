@@ -68,14 +68,15 @@ class RealtimeServiceManager {
     }
   }
 
-  public async broadcastMood(mood: string) {
-    this.emit('mood', { mood, timestamp: Date.now() });
+  public async broadcastMood(mood: string, senderId?: string) {
+    // Do NOT emit 'mood' locally via this.emit.
+    // Emitting locally caused the current device to receive its own user mood as partner mood!
     try {
       if (this.activeChannel) {
         await this.activeChannel.send({
           type: 'broadcast',
           event: 'mood',
-          payload: { mood, timestamp: Date.now() },
+          payload: { mood, senderId, timestamp: Date.now() },
         });
       }
     } catch {
