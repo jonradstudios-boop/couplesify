@@ -39,9 +39,13 @@ type GamesViewMode = 'hub' | 'mini_games' | 'spicy_games';
 
 export interface GamesScreenProps {
   onSpicyModeChange?: (isSpicy: boolean) => void;
+  onModalStateChange?: (isOpen: boolean) => void;
 }
 
-export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) => {
+export const GamesScreen: React.FC<GamesScreenProps> = ({
+  onSpicyModeChange,
+  onModalStateChange,
+}) => {
   const [viewMode, setViewMode] = useState<GamesViewMode>('hub');
   const [goals, setGoals] = useState<CoupleGoal[]>([]);
   const [activeGameModal, setActiveGameModal] = useState<string | null>(null);
@@ -391,6 +395,75 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
     } catch {}
   };
 
+  const handleSelectTodType = async (type: 'truth' | 'dare') => {
+    setTodType(type);
+    setCardFlipped(false);
+    setShowAnswerInput(false);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      const list = type === 'truth' ? ALL_TRUTHS : ALL_DARES;
+      const promptKey = `tod-${type}-${todIndex % list.length}`;
+      await FirestoreService.syncTruthOrDare(prof.inviteCode, {
+        promptKey,
+        cardFlipped: false,
+        todType: type,
+        todIndex,
+        todTurn,
+        updatedAt: Date.now(),
+      });
+      await RealtimeService.broadcastGameMove('tod_type', { todType: type });
+    }
+  };
+
+  const handleToggleTodCardFlip = async () => {
+    const nextFlipped = !cardFlipped;
+    setCardFlipped(nextFlipped);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      const list = todType === 'truth' ? ALL_TRUTHS : ALL_DARES;
+      const promptKey = `tod-${todType}-${todIndex % list.length}`;
+      await FirestoreService.syncTruthOrDare(prof.inviteCode, {
+        promptKey,
+        cardFlipped: nextFlipped,
+        todType,
+        todIndex,
+        todTurn,
+        updatedAt: Date.now(),
+      });
+      await RealtimeService.broadcastGameMove('tod_flip', { cardFlipped: nextFlipped });
+    }
+  };
+
+  const handleDrawNextCard = async () => {
+    const nextIndex = todIndex + 1;
+    setTodIndex(nextIndex);
+    setCardFlipped(false);
+    setShowAnswerInput(false);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      const list = todType === 'truth' ? ALL_TRUTHS : ALL_DARES;
+      const promptKey = `tod-${todType}-${nextIndex % list.length}`;
+      await FirestoreService.syncTruthOrDare(prof.inviteCode, {
+        promptKey,
+        cardFlipped: false,
+        todType,
+        todIndex: nextIndex,
+        todTurn,
+        updatedAt: Date.now(),
+      });
+      await RealtimeService.broadcastGameMove('tod_draw', { todIndex: nextIndex });
+    }
+  };
+
   useEffect(() => {
     let unsubInvite: (() => void) | undefined;
     let unsubGame: (() => void) | undefined;
@@ -453,6 +526,22 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
       if (data?.gameId === 'tod_answer' && data.promptKey && data.answer) {
         setSavedAnswers((prev) => ({ ...prev, [data.promptKey]: data.answer }));
       }
+      if (data?.gameId === 'tod_flip' && data.cardFlipped !== undefined) {
+        setCardFlipped(data.cardFlipped);
+      }
+      if (data?.gameId === 'tod_draw' && typeof data.todIndex === 'number') {
+        setTodIndex(data.todIndex);
+        setCardFlipped(false);
+        setShowAnswerInput(false);
+      }
+      if (data?.gameId === 'tod_type' && data.todType) {
+        setTodType(data.todType);
+        setCardFlipped(false);
+        setShowAnswerInput(false);
+      }
+      if (data?.gameId === 'turn' && data.todTurn) {
+        setTodTurn(data.todTurn);
+      }
       if (data?.gameId === 'invite' && data.invite && data.invite.fromName !== userName) {
         setPendingInvitePopup(data.invite);
         setIsPartnerConnected(true);
@@ -474,6 +563,19 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
       onSpicyModeChange?.(false);
     };
   }, [viewMode, isSpicyTransitionActive, onSpicyModeChange]);
+
+  useEffect(() => {
+    const isModalOpen = Boolean(
+      activeGameModal !== null ||
+      isInviteModalOpen ||
+      isCustomModalOpen ||
+      viewMode === 'spicy_games'
+    );
+    onModalStateChange?.(isModalOpen);
+    return () => {
+      onModalStateChange?.(false);
+    };
+  }, [activeGameModal, isInviteModalOpen, isCustomModalOpen, viewMode, onModalStateChange]);
 
   const handleToggleGoal = async (id: string) => {
     const updated = goals.map((g) => {
@@ -1391,11 +1493,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
               <View style={styles.wheelTierRow}>
                 <TouchableOpacity
                   style={[styles.tierBtn, todType === 'truth' && styles.tierBtnActive]}
-                  onPress={() => {
-                    setTodType('truth');
-                    setCardFlipped(false);
-                    setShowAnswerInput(false);
-                  }}
+                  onPress={() => handleSelectTodType('truth')}
                 >
                   <Text style={[styles.tierBtnText, todType === 'truth' && styles.tierBtnTextActive]}>
                     Truth 💭 ({ALL_TRUTHS.length})
@@ -1403,11 +1501,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.tierBtn, todType === 'dare' && styles.tierBtnActive]}
-                  onPress={() => {
-                    setTodType('dare');
-                    setCardFlipped(false);
-                    setShowAnswerInput(false);
-                  }}
+                  onPress={() => handleSelectTodType('dare')}
                 >
                   <Text style={[styles.tierBtnText, todType === 'dare' && styles.tierBtnTextActive]}>
                     Dare 🌶️ ({ALL_DARES.length})
@@ -1418,12 +1512,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
               {/* Flip Card */}
               <TouchableOpacity
                 style={[styles.flipCard, cardFlipped && styles.flipCardFlipped]}
-                onPress={() => {
-                  setCardFlipped(!cardFlipped);
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  } catch {}
-                }}
+                onPress={handleToggleTodCardFlip}
                 activeOpacity={0.9}
               >
                 {!cardFlipped ? (
@@ -1524,11 +1613,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
               <View style={styles.todFooterBtnRow}>
                 <TouchableOpacity
                   style={[styles.spinBtn, { flex: 1, marginRight: 8 }]}
-                  onPress={() => {
-                    setTodIndex((i) => i + 1);
-                    setCardFlipped(false);
-                    setShowAnswerInput(false);
-                  }}
+                  onPress={handleDrawNextCard}
                 >
                   <Text style={styles.spinBtnText}>Draw Next Card ➔</Text>
                 </TouchableOpacity>

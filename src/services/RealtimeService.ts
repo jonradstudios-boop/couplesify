@@ -76,9 +76,15 @@ class RealtimeServiceManager {
           }
 
           // 2. Shared Doodle (Widget drawing)
-          if (data.doodle && data.doodle.updatedAt && data.doodle.updatedAt > (this.lastProcessedTimes['doodle'] || 0)) {
-            this.lastProcessedTimes['doodle'] = data.doodle.updatedAt;
-            this.emit('doodle', data.doodle);
+          if (data.doodle !== undefined) {
+            if (data.doodle && data.doodle.updatedAt && data.doodle.updatedAt > (this.lastProcessedTimes['doodle'] || 0)) {
+              this.lastProcessedTimes['doodle'] = data.doodle.updatedAt;
+              StorageService.saveSharedDoodle(data.doodle);
+              this.emit('doodle', data.doodle);
+            } else if (data.doodle === null) {
+              StorageService.saveSharedDoodle(null);
+              this.emit('doodle', null);
+            }
           }
 
           // 3. Love Nudge
@@ -87,16 +93,28 @@ class RealtimeServiceManager {
             this.emit('nudge', data.nudge);
           }
 
-          // 4. Ephemeral Snap
-          if (data.snap && data.snap.timestamp && data.snap.timestamp > (this.lastProcessedTimes['snap'] || 0)) {
-            this.lastProcessedTimes['snap'] = data.snap.timestamp;
-            this.emit('snap', data.snap);
+          // 4. Ephemeral Snap (Syncs live across devices & persists to storage)
+          if (data.snap !== undefined) {
+            if (data.snap && data.snap.timestamp && data.snap.timestamp > (this.lastProcessedTimes['snap'] || 0)) {
+              this.lastProcessedTimes['snap'] = data.snap.timestamp;
+              StorageService.saveEphemeralSnap(data.snap);
+              this.emit('snap', data.snap);
+            } else if (data.snap === null) {
+              StorageService.saveEphemeralSnap(null);
+              this.emit('snap', null);
+            }
           }
 
-          // 5. Sweet Voice Note
-          if (data.voice && data.voice.timestamp && data.voice.timestamp > (this.lastProcessedTimes['voice'] || 0)) {
-            this.lastProcessedTimes['voice'] = data.voice.timestamp;
-            this.emit('voice', data.voice);
+          // 5. Sweet Voice Note (Syncs live across devices & persists to storage)
+          if (data.voice !== undefined) {
+            if (data.voice && data.voice.timestamp && data.voice.timestamp > (this.lastProcessedTimes['voice'] || 0)) {
+              this.lastProcessedTimes['voice'] = data.voice.timestamp;
+              StorageService.saveSweetVoiceNote(data.voice);
+              this.emit('voice', data.voice);
+            } else if (data.voice === null) {
+              StorageService.saveSweetVoiceNote(null);
+              this.emit('voice', null);
+            }
           }
 
           // 6. Mini-Game Events (invites, host start, truth or dare)

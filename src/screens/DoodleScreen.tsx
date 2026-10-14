@@ -134,9 +134,19 @@ export const DoodleScreen: React.FC<DoodleScreenProps> = ({ onBack }) => {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.attributionTitle}>
-                {activeDoodle?.strokes && activeDoodle.strokes.length > 0
-                  ? `${activeDoodle.author || partnerName} has drawn this widget 🎨`
-                  : `Draw for ${partnerName}'s home screen widget! 🎨`}
+                {(() => {
+                  const isMyDoodle = Boolean(
+                    activeDoodle?.author &&
+                    userName &&
+                    activeDoodle.author.trim().toLowerCase() === userName.trim().toLowerCase()
+                  );
+                  if (activeDoodle?.strokes && activeDoodle.strokes.length > 0) {
+                    return isMyDoodle
+                      ? `Your widget drawing for ${partnerName} 🎨`
+                      : `${activeDoodle.author || partnerName} has drawn this widget 🎨`;
+                  }
+                  return `Draw for ${partnerName}'s home screen widget! 🎨`;
+                })()}
               </Text>
               <Text style={styles.attributionSub}>
                 Synced with lockscreen & home widgets

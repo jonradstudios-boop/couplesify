@@ -585,6 +585,22 @@ export const FirestoreService = {
   },
 
   /**
+   * Get latest live sync document (snap, voice, doodle, mood) directly
+   */
+  async getLiveSyncDoc(inviteCode: string): Promise<any | null> {
+    if (!isInitialized || !db || !inviteCode) return null;
+    try {
+      const code = inviteCode.trim().toUpperCase();
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      const snap = await getDoc(syncRef);
+      return snap.exists() ? snap.data() : null;
+    } catch (err) {
+      console.warn('Firestore getLiveSyncDoc error:', err);
+      return null;
+    }
+  },
+
+  /**
    * Sync Ephemeral Snap to Cloud
    */
   async syncSnap(inviteCode: string, snap: EphemeralSnap | null): Promise<void> {

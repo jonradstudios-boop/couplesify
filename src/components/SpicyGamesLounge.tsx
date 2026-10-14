@@ -122,6 +122,15 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
             if (key && todState.answer) {
               setSavedAnswers((prev) => ({ ...prev, [key]: todState.answer }));
             }
+            if (todState.cardFlipped !== undefined) {
+              setTodCardFlipped(todState.cardFlipped);
+            }
+            if (todState.todType) {
+              setTodTab(todState.todType);
+            }
+            if (typeof todState.todIndex === 'number') {
+              setTodIndex(todState.todIndex);
+            }
             if (todState.todTurn) {
               setTodTurn(todState.todTurn);
             }
@@ -137,6 +146,19 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
         if (key && data.answer) {
           setSavedAnswers((prev) => ({ ...prev, [key]: data.answer }));
         }
+      }
+      if (data?.gameId === 'tod_flip' && data.cardFlipped !== undefined) {
+        setTodCardFlipped(data.cardFlipped);
+      }
+      if (data?.gameId === 'tod_draw' && typeof data.todIndex === 'number') {
+        setTodIndex(data.todIndex);
+        setTodCardFlipped(false);
+        setShowAnswerInput(false);
+      }
+      if (data?.gameId === 'tod_type' && data.todType) {
+        setTodTab(data.todType);
+        setTodCardFlipped(false);
+        setShowAnswerInput(false);
       }
       if (data?.gameId === 'turn' && data.todTurn) {
         setTodTurn(data.todTurn);
@@ -384,11 +406,96 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
     const ans = answerInputText.trim();
     setSavedAnswers((prev) => ({ ...prev, [promptKey]: ans }));
     await GameSyncService.savePromptAnswer(promptKey, ans, 'user');
+
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      await FirestoreService.syncTruthOrDare(prof.inviteCode, {
+        promptKey,
+        answer: ans,
+        author: todTurn === 'user' ? userName : partnerName,
+        cardFlipped: true,
+        todType: todTab,
+        todIndex,
+        todTurn,
+        updatedAt: Date.now(),
+      });
+      await RealtimeService.broadcastGameMove('tod_answer', {
+        promptKey,
+        answer: ans,
+      });
+    }
+
     setAnswerInputText('');
     setShowAnswerInput(false);
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {}
+  };
+
+  const handleSelectTodTab = async (type: 'truth' | 'dare') => {
+    setTodTab(type);
+    setTodCardFlipped(false);
+    setShowAnswerInput(false);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      const promptKey = `spicy-tod-${type}-${todIndex}`;
+      await FirestoreService.syncTruthOrDare(prof.inviteCode, {
+        promptKey,
+        cardFlipped: false,
+        todType: type,
+        todIndex,
+        todTurn,
+        updatedAt: Date.now(),
+      });
+      await RealtimeService.broadcastGameMove('tod_type', { todType: type });
+    }
+  };
+
+  const handleToggleTodCardFlip = async () => {
+    const nextFlipped = !todCardFlipped;
+    setTodCardFlipped(nextFlipped);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      const promptKey = `spicy-tod-${todTab}-${todIndex}`;
+      await FirestoreService.syncTruthOrDare(prof.inviteCode, {
+        promptKey,
+        cardFlipped: nextFlipped,
+        todType: todTab,
+        todIndex,
+        todTurn,
+        updatedAt: Date.now(),
+      });
+      await RealtimeService.broadcastGameMove('tod_flip', { cardFlipped: nextFlipped });
+    }
+  };
+
+  const handleNextTodCard = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+    const nextIndex = todIndex + 1;
+    setTodIndex(nextIndex);
+    setTodCardFlipped(false);
+    setShowAnswerInput(false);
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      const promptKey = `spicy-tod-${todTab}-${nextIndex}`;
+      await FirestoreService.syncTruthOrDare(prof.inviteCode, {
+        promptKey,
+        cardFlipped: false,
+        todType: todTab,
+        todIndex: nextIndex,
+        todTurn,
+        updatedAt: Date.now(),
+      });
+      await RealtimeService.broadcastGameMove('tod_draw', { todIndex: nextIndex });
+    }
   };
 
   const ALL_SPICY_TRUTHS = [...customTruths, ...SPICY_TRUTHS];
@@ -578,11 +685,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
             <View style={styles.todTabsRow}>
               <TouchableOpacity
                 style={[styles.todTabBtn, todTab === 'truth' && styles.todTabActive]}
-                onPress={() => {
-                  setTodTab('truth');
-                  setTodCardFlipped(false);
-                  setShowAnswerInput(false);
-                }}
+                onPress={() => handleSelectTodTab('truth')}
               >
                 <Text style={[styles.todTabText, todTab === 'truth' && styles.todTabTextActive]}>
                   TRUTH 💭 ({ALL_SPICY_TRUTHS.length})
@@ -591,11 +694,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
 
               <TouchableOpacity
                 style={[styles.todTabBtn, todTab === 'dare' && styles.todTabActive]}
-                onPress={() => {
-                  setTodTab('dare');
-                  setTodCardFlipped(false);
-                  setShowAnswerInput(false);
-                }}
+                onPress={() => handleSelectTodTab('dare')}
               >
                 <Text style={[styles.todTabText, todTab === 'dare' && styles.todTabTextActive]}>
                   DARE 🌶️ ({ALL_SPICY_DARES.length})
@@ -607,12 +706,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
             <ScrollView contentContainerStyle={{ alignItems: 'center', paddingBottom: 40 }}>
               <TouchableOpacity
                 style={styles.todCard}
-                onPress={() => {
-                  setTodCardFlipped(!todCardFlipped);
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  } catch {}
-                }}
+                onPress={handleToggleTodCardFlip}
                 activeOpacity={0.9}
               >
                 <Text style={styles.todCardCategory}>
@@ -705,14 +799,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
               <View style={styles.spicyFooterRow}>
                 <TouchableOpacity
                   style={[styles.bigSpinBtn, { flex: 1, marginRight: 8 }]}
-                  onPress={() => {
-                    try {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    } catch {}
-                    setTodIndex((prev) => prev + 1);
-                    setTodCardFlipped(false);
-                    setShowAnswerInput(false);
-                  }}
+                  onPress={handleNextTodCard}
                   activeOpacity={0.85}
                 >
                   <Text style={styles.bigSpinBtnText}>NEXT CARD ➔</Text>

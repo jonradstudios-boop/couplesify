@@ -84,6 +84,29 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     if (profile?.anniversaryDate) {
       setAnniversaryInput(profile.anniversaryDate);
     }
+
+    // Also fetch fresh live cloud sync state from Firestore if available
+    if (profile?.inviteCode) {
+      try {
+        const liveDoc = await FirestoreService.getLiveSyncDoc(profile.inviteCode);
+        if (liveDoc) {
+          if (liveDoc.snap !== undefined) {
+            setSnap(liveDoc.snap);
+            await StorageService.saveEphemeralSnap(liveDoc.snap);
+          }
+          if (liveDoc.voice !== undefined) {
+            setVoiceNote(liveDoc.voice);
+            await StorageService.saveSweetVoiceNote(liveDoc.voice);
+          }
+          if (liveDoc.doodle !== undefined) {
+            setSharedDoodle(liveDoc.doodle);
+            await StorageService.saveSharedDoodle(liveDoc.doodle);
+          }
+        }
+      } catch (err) {
+        console.warn('loadHubData cloud fetch error:', err);
+      }
+    }
   }, [profile]);
 
   // Load all hub data whenever modal becomes visible & subscribe to live updates
@@ -93,24 +116,18 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     }
 
     const unsubSnap = RealtimeService.on('snap', (newSnap) => {
-      if (newSnap) {
-        setSnap(newSnap);
-        StorageService.saveEphemeralSnap(newSnap);
-      }
+      setSnap(newSnap);
+      StorageService.saveEphemeralSnap(newSnap);
     });
 
     const unsubVoice = RealtimeService.on('voice', (newVoice) => {
-      if (newVoice) {
-        setVoiceNote(newVoice);
-        StorageService.saveSweetVoiceNote(newVoice);
-      }
+      setVoiceNote(newVoice);
+      StorageService.saveSweetVoiceNote(newVoice);
     });
 
     const unsubDoodle = RealtimeService.on('doodle', (newDoodle) => {
-      if (newDoodle) {
-        setSharedDoodle(newDoodle);
-        StorageService.saveSharedDoodle(newDoodle);
-      }
+      setSharedDoodle(newDoodle);
+      StorageService.saveSharedDoodle(newDoodle);
     });
 
     return () => {
@@ -203,6 +220,9 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
       setSnap(null);
       setSnapRemainingTime(null);
       await StorageService.saveEphemeralSnap(null);
+      if (profile?.inviteCode) {
+        await FirestoreService.syncSnap(profile.inviteCode, null);
+      }
     };
 
     if (Platform.OS === 'web') {
@@ -612,39 +632,54 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
             {/* ======================================================== */}
             {/* SECTION 3: LIVE SHARED DOODLE CANVAS                     */}
             {/* ======================================================== */}
-            <View style={styles.glassSection}>
-              <View style={styles.sectionHeaderRow}>
-                <View style={styles.sectionTitleGroup}>
-                  <Ionicons name="brush" size={17} color={AppColors.primary} />
-                  <Text style={styles.sectionTitle}>
-                    {sharedDoodle?.strokes && sharedDoodle.strokes.length > 0
-                      ? `${sharedDoodle.author || partnerName} has drawn this 🎨`
-                      : 'Shared Sweet Doodle'}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <View style={styles.doodleAuthorChip}>
-                    <Text style={styles.doodleAuthorText}>
-                      {sharedDoodle?.author ? `By ${sharedDoodle.author}` : 'Live Canvas'}
-                    </Text>
+            {(() => {
+              const isMyDoodle = Boolean(
+                sharedDoodle?.author &&
+                userName &&
+                sharedDoodle.author.trim().toLowerCase() === userName.trim().toLowerCase()
+              );
+              return (
+                <View style={styles.glassSection}>
+                  <View style={styles.sectionHeaderRow}>
+                    <View style={styles.sectionTitleGroup}>
+                      <Ionicons name="brush" size={17} color={AppColors.primary} />
+                      <Text style={styles.sectionTitle}>
+                        {sharedDoodle?.strokes && sharedDoodle.strokes.length > 0
+                          ? isMyDoodle
+                            ? `Your Doodle for ${partnerName} 🎨`
+                            : `${sharedDoodle.author || partnerName} has drawn this 🎨`
+                          : 'Shared Sweet Doodle'}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={styles.doodleAuthorChip}>
+                        <Text style={styles.doodleAuthorText}>
+                          {sharedDoodle?.author
+                            ? isMyDoodle
+                              ? 'Drawn by You'
+                              : `By ${sharedDoodle.author}`
+                            : 'Live Canvas'}
+                        </Text>
+                      </View>
+                      {onOpenDoodle && (
+                        <TouchableOpacity
+                          style={styles.expandDoodleBtn}
+                          onPress={onOpenDoodle}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="expand" size={13} color={AppColors.primary} />
+                          <Text style={styles.expandDoodleText}>Full</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
-                  {onOpenDoodle && (
-                    <TouchableOpacity
-                      style={styles.expandDoodleBtn}
-                      onPress={onOpenDoodle}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="expand" size={13} color={AppColors.primary} />
-                      <Text style={styles.expandDoodleText}>Full</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-              <Text style={styles.sectionDescription}>
-                {sharedDoodle?.author
-                  ? `${sharedDoodle.author} has drawn this widget canvas. Tap Reply to draw your response!`
-                  : `Draw together right here — your shared couple canvas in one place!`}
-              </Text>
+                  <Text style={styles.sectionDescription}>
+                    {sharedDoodle?.author
+                      ? isMyDoodle
+                        ? `Your sweet drawing is synced live with ${partnerName}! Tap Reply to add to it or draw anytime.`
+                        : `${sharedDoodle.author} drew this widget canvas for you. Tap Reply to draw your response!`
+                      : `Draw together right here — your shared couple canvas in one place!`}
+                  </Text>
 
               {/* Embedded Interactive Doodle Canvas */}
               <View style={styles.canvasWrapper}>
@@ -690,6 +725,8 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                 </TouchableOpacity>
               )}
             </View>
+              );
+            })()}
 
             {/* ======================================================== */}
             {/* SECTION 4: SWEET VOICE NOTE AREA                         */}

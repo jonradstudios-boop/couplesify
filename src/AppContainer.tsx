@@ -14,6 +14,7 @@ import PairingModal from './components/PairingModal';
 import StorageService, { CoupleProfile } from './services/StorageService';
 import AuthService from './services/AuthService';
 import FirestoreService from './services/FirestoreService';
+import RealtimeService from './services/RealtimeService';
 import AppColors from './theme/AppColors';
 
 export const AppContainer: React.FC = () => {
@@ -27,6 +28,7 @@ export const AppContainer: React.FC = () => {
   const [isPairingModalOpen, setIsPairingModalOpen] = useState(false);
   const [profile, setProfile] = useState<CoupleProfile | null>(null);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isGameModalActive, setIsGameModalActive] = useState(false);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
@@ -62,6 +64,18 @@ export const AppContainer: React.FC = () => {
             if (liveData.profile) {
               setProfile(liveData.profile);
               StorageService.saveProfile(liveData.profile);
+            }
+            if (liveData.snap !== undefined) {
+              StorageService.saveEphemeralSnap(liveData.snap);
+              RealtimeService.emit('snap', liveData.snap);
+            }
+            if (liveData.voiceNote !== undefined) {
+              StorageService.saveSweetVoiceNote(liveData.voiceNote);
+              RealtimeService.emit('voice', liveData.voiceNote);
+            }
+            if (liveData.doodle !== undefined) {
+              StorageService.saveSharedDoodle(liveData.doodle);
+              RealtimeService.emit('doodle', liveData.doodle);
             }
           }
         );
@@ -125,7 +139,10 @@ export const AppContainer: React.FC = () => {
           )}
 
           {activeTab === 'games' && (
-            <GamesScreen onSpicyModeChange={setIsSpicyActive} />
+            <GamesScreen
+              onSpicyModeChange={setIsSpicyActive}
+              onModalStateChange={setIsGameModalActive}
+            />
           )}
 
           {activeTab === 'memories' && <MemoryScreen />}
@@ -139,11 +156,13 @@ export const AppContainer: React.FC = () => {
         </View>
       )}
 
-      {/* Persistent Floating Bottom Bar (hidden inside full-screen immersive views like Spicy Games & Doodling, or during active typing) */}
+      {/* Persistent Floating Bottom Bar (hidden inside full-screen immersive views like Spicy Games & Doodling, or during active typing or open modals) */}
       {isAuthenticated &&
         !isDoodleFullscreen &&
-        !(activeTab === 'games' && isSpicyActive) &&
-        !isKeyboardVisible && (
+        !(activeTab === 'games' && (isSpicyActive || isGameModalActive)) &&
+        !isKeyboardVisible &&
+        !isNudgeModalOpen &&
+        !isPairingModalOpen && (
           <CustomBottomBar
             activeTab={activeTab}
             onTabPress={(tab) => {
