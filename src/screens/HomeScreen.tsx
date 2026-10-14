@@ -63,7 +63,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               setPartnerMood(liveData.partnerMood);
               StorageService.setPartnerMood(liveData.partnerMood);
             }
-            if (liveData.snap) {
+            if (liveData.snap !== undefined) {
               setActiveSnap(liveData.snap);
               StorageService.saveEphemeralSnap(liveData.snap);
             }
@@ -209,7 +209,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           )}
 
           {/* Active 7-Hour Sweet Snap for Partner */}
-          {activeSnap && (
+          {activeSnap ? (
             <TouchableOpacity
               style={styles.snapTeaserCard}
               onPress={() => {
@@ -232,10 +232,43 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
               <View style={styles.snapTeaserImageWrapper}>
                 <Image source={{ uri: activeSnap.imageUri }} style={styles.snapTeaserImage} />
+                {activeSnap.caption ? (
+                  <View style={styles.snapTeaserCaptionTag}>
+                    <Text style={styles.snapTeaserCaptionText} numberOfLines={1}>
+                      {activeSnap.caption}
+                    </Text>
+                  </View>
+                ) : null}
                 <View style={styles.snapTeaserBadge}>
                   <Ionicons name="heart" size={12} color="#FF6575" />
-                  <Text style={styles.snapTeaserBadgeText}>Tap ❤️ to View & Reply</Text>
+                  <Text style={styles.snapTeaserBadgeText}>Tap ❤️ to View, Save & Reply</Text>
                 </View>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.emptySnapTeaserCard}
+              onPress={() => {
+                if (onOpenHeartHub) onOpenHeartHub();
+              }}
+              activeOpacity={0.85}
+            >
+              <View style={styles.emptySnapTeaserLeft}>
+                <View style={styles.emptySnapCameraIcon}>
+                  <Feather name="camera" size={16} color={AppColors.primary} />
+                </View>
+                <View>
+                  <Text style={styles.emptySnapTeaserTitle}>
+                    Sweet Snap for {profile?.partnerName || 'Partner'}
+                  </Text>
+                  <Text style={styles.emptySnapTeaserSubtitle}>
+                    Upload a surprise photo that resets in 7h 📸
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.emptySnapAddBtn}>
+                <Ionicons name="add" size={14} color="#FFFFFF" />
+                <Text style={styles.emptySnapAddBtnText}>Send Snap</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -445,6 +478,75 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: AppColors.primary,
+  },
+  snapTeaserCaptionTag: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    maxWidth: '55%',
+    backgroundColor: 'rgba(30, 20, 25, 0.65)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  snapTeaserCaptionText: {
+    fontSize: 10,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  emptySnapTeaserCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#FFE0E6',
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  emptySnapTeaserLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  emptySnapCameraIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 235, 240, 0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptySnapTeaserTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: AppColors.textPrimary,
+  },
+  emptySnapTeaserSubtitle: {
+    fontSize: 10.5,
+    color: AppColors.textSecondary,
+    marginTop: 1,
+  },
+  emptySnapAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    gap: 3,
+  },
+  emptySnapAddBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   memoriesTeaserHeader: {
     flexDirection: 'row',

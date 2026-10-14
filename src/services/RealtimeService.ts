@@ -20,6 +20,7 @@ class RealtimeServiceManager {
   private unsubSnapshot: Unsubscribe | null = null;
   private pairingCode: string = '8444';
   private lastProcessedTimes: { [event: string]: number } = {};
+  private lastSnapId: string = '';
 
   constructor() {
     this.initFromStorage();
@@ -95,11 +96,19 @@ class RealtimeServiceManager {
 
           // 4. Ephemeral Snap (Syncs live across devices & persists to storage)
           if (data.snap !== undefined) {
-            if (data.snap && data.snap.timestamp && data.snap.timestamp > (this.lastProcessedTimes['snap'] || 0)) {
-              this.lastProcessedTimes['snap'] = data.snap.timestamp;
+            if (
+              data.snap &&
+              data.snap.imageUri &&
+              (data.snap.id !== this.lastSnapId ||
+                (data.snap.timestamp && data.snap.timestamp > (this.lastProcessedTimes['snap'] || 0)))
+            ) {
+              this.lastSnapId = data.snap.id || `snap-${data.snap.timestamp || Date.now()}`;
+              this.lastProcessedTimes['snap'] = data.snap.timestamp || Date.now();
               StorageService.saveEphemeralSnap(data.snap);
               this.emit('snap', data.snap);
             } else if (data.snap === null) {
+              this.lastSnapId = '';
+              this.lastProcessedTimes['snap'] = 0;
               StorageService.saveEphemeralSnap(null);
               this.emit('snap', null);
             }
@@ -265,19 +274,30 @@ class RealtimeServiceManager {
   }
 
   /**
-   * Broadcast ephemeral snap
+   * Broadcast ephemeral snap (or null to clear)
    */
-  public async broadcastSnap(snap: EphemeralSnap) {
-    const timestamp = snap.timestamp || Date.now();
-    this.lastProcessedTimes['snap'] = timestamp;
-    this.emit('snap', snap);
+  public async broadcastSnap(snap: EphemeralSnap | null) {
+    if (snap) {
+      const timestamp = snap.timestamp || Date.now();
+      this.lastSnapId = snap.id || `snap-${timestamp}`;
+      this.lastProcessedTimes['snap'] = timestamp;
+      this.emit('snap', snap);
 
-    await this.writeSync({
-      snap: {
-        ...snap,
-        timestamp,
-      },
-    });
+      await this.writeSync({
+        snap: {
+          ...snap,
+          timestamp,
+        },
+      });
+    } else {
+      this.lastSnapId = '';
+      this.lastProcessedTimes['snap'] = 0;
+      this.emit('snap', null);
+
+      await this.writeSync({
+        snap: null as any,
+      });
+    }
   }
 
   /**

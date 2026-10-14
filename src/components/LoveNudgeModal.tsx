@@ -10,6 +10,7 @@ import {
   TextInput,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -23,9 +24,11 @@ import StorageService, {
   EphemeralSnap,
   SweetVoiceNote,
   SharedDoodle,
+  MemoryItem,
 } from '../services/StorageService';
 import RealtimeService from '../services/RealtimeService';
 import FirestoreService from '../services/FirestoreService';
+import ImageCompressService from '../services/ImageCompressService';
 
 interface LoveNudgeModalProps {
   visible: boolean;
@@ -48,9 +51,15 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
   onClose,
   onOpenDoodle,
 }) => {
-  // Ephemeral Snap (7h Reset)
+  // Ephemeral Snap (7h Reset) & Staging Save Area
   const [snap, setSnap] = useState<EphemeralSnap | null>(null);
   const [snapRemainingTime, setSnapRemainingTime] = useState<string | null>(null);
+  const [stagedSnapUri, setStagedSnapUri] = useState<string | null>(null);
+  const [stagedCaption, setStagedCaption] = useState<string>('');
+  const [isReplySnap, setIsReplySnap] = useState<boolean>(false);
+  const [isSavingToMemories, setIsSavingToMemories] = useState<boolean>(true);
+  const [isUploadingSnap, setIsUploadingSnap] = useState<boolean>(false);
+  const [isSnapSavedToMemories, setIsSnapSavedToMemories] = useState<boolean>(false);
 
   // Anniversary state & calculations
   const [anniversaryInput, setAnniversaryInput] = useState(
@@ -174,8 +183,8 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     return () => clearInterval(interval);
   }, [visible, snap]);
 
-  // 1. Ephemeral Snap Actions (7 hours reset)
-  const handlePickSweetSnap = async () => {
+  // 1. Ephemeral Snap Actions (7 hours reset + Staging Save Area)
+  const handlePickSweetSnap = async (isReply = false) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -188,57 +197,144 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.6,
+        quality: 0.45,
         base64: true,
       });
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
-        const asset = res.assets[0];
-        let imageUri = asset.base64
-          ? `data:image/jpeg;base64,${asset.base64}`
-          : asset.uri;
+        const compressedUri = await ImageCompressService.processPickerAsset(res.assets[0]);
+        setStagedSnapUri(compressedUri);
+        setIsReplySnap(isReply);
+        setStagedCaption(isReply ? (snap?.author ? `Reply to ${snap.author} 💕` : 'Reply snap 💕') : '');
+        setIsSnapSavedToMemories(false);
+      }
+    } catch (err) {
+      console.warn('handlePickSweetSnap error:', err);
+    }
+  };
 
-        // Ensure cross-device web compatibility: convert blob to base64 data URL
-        if (Platform.OS === 'web' && (!asset.base64 || imageUri.startsWith('blob:'))) {
-          try {
-            const resp = await fetch(asset.uri);
-            const blob = await resp.blob();
-            const reader = new FileReader();
-            imageUri = await new Promise<string>((resolve) => {
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.onerror = () => resolve(asset.uri);
-              reader.readAsDataURL(blob);
-            });
-          } catch (e) {
-            console.warn('Web blob to base64 fallback:', e);
+  const handleConfirmSaveSnap = async () => {
+    if (!stagedSnapUri) return;
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+
+    setIsUploadingSnap(true);
+    try {
+      const isReply = isReplySnap;
+      const snapCaption =
+        stagedCaption.trim() ||
+        (isReply ? `Reply to ${snap?.author || partnerName} 💕` : 'Uploaded with love 💕');
+
+      const newSnap: EphemeralSnap = {
+        id: `snap-${Date.now()}`,
+        imageUri: stagedSnapUri,
+        timestamp: Date.now(),
+        author: userName || 'You',
+        caption: snapCaption,
+      };
+
+      setSnap(newSnap);
+      await StorageService.saveEphemeralSnap(newSnap);
+      await RealtimeService.broadcastSnap(newSnap);
+
+      const effectiveProfile = profile || (await StorageService.getProfile());
+      if (effectiveProfile?.inviteCode) {
+        await FirestoreService.syncSnap(effectiveProfile.inviteCode, newSnap);
+      }
+
+      // If user chose to also save to Memories Keepsake:
+      if (isSavingToMemories) {
+        try {
+          const currentMemories = await StorageService.getMemories();
+          const todayStr = new Intl.DateTimeFormat('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          }).format(new Date());
+
+          const newMemory: MemoryItem = {
+            id: `m-snap-${Date.now()}`,
+            imageUri: stagedSnapUri,
+            caption: snapCaption,
+            date: todayStr,
+            tag: 'Snap 📸',
+            likes: 1,
+            isLiked: true,
+          };
+          const updatedMemories = [newMemory, ...currentMemories];
+          await StorageService.saveMemories(updatedMemories);
+          if (effectiveProfile?.inviteCode) {
+            await FirestoreService.syncMemories(effectiveProfile.inviteCode, updatedMemories);
           }
+        } catch (memErr) {
+          console.warn('Error saving snap copy to memories:', memErr);
         }
+      }
 
-        const isReply = !!snap;
-        const newSnap: EphemeralSnap = {
-          id: `snap-${Date.now()}`,
-          imageUri,
-          timestamp: Date.now(),
-          author: userName || 'You',
-          caption: isReply ? `Reply to ${snap?.author || partnerName} 💕` : 'Uploaded with love 💕',
+      setStagedSnapUri(null);
+      setStagedCaption('');
+      setIsReplySnap(false);
+      setSentMessage(
+        isReply
+          ? `Replied to snap for ${partnerName}! 📸`
+          : `Sent sweet snap to ${partnerName}! Resets in 7h 📸`
+      );
+      setTimeout(() => setSentMessage(null), 3500);
+    } catch (saveErr) {
+      console.warn('handleConfirmSaveSnap error:', saveErr);
+      Alert.alert('Upload Error', 'Could not sync sweet snap. Please check connection and try again.');
+    } finally {
+      setIsUploadingSnap(false);
+    }
+  };
+
+  const handleCancelStagedSnap = () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    setStagedSnapUri(null);
+    setStagedCaption('');
+    setIsReplySnap(false);
+  };
+
+  const handleSaveActiveSnapToMemories = async () => {
+    if (!snap) return;
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+
+    try {
+      const currentMemories = await StorageService.getMemories();
+      const alreadySaved = currentMemories.some((m) => m.imageUri === snap.imageUri);
+      if (!alreadySaved) {
+        const todayStr = new Intl.DateTimeFormat('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        }).format(new Date());
+
+        const newMemory: MemoryItem = {
+          id: `m-snap-${Date.now()}`,
+          imageUri: snap.imageUri,
+          caption: snap.caption || `${snap.author || partnerName}'s Sweet Snap 📸`,
+          date: todayStr,
+          tag: 'Snap 📸',
+          likes: 1,
+          isLiked: true,
         };
-        setSnap(newSnap);
-        await StorageService.saveEphemeralSnap(newSnap);
-        await RealtimeService.broadcastSnap(newSnap);
+        const updatedMemories = [newMemory, ...currentMemories];
+        await StorageService.saveMemories(updatedMemories);
         const effectiveProfile = profile || (await StorageService.getProfile());
         if (effectiveProfile?.inviteCode) {
-          await FirestoreService.syncSnap(effectiveProfile.inviteCode, newSnap);
+          await FirestoreService.syncMemories(effectiveProfile.inviteCode, updatedMemories);
         }
-
-        setSentMessage(
-          isReply
-            ? `Replied to snap for ${partnerName}! 📸`
-            : `Sent sweet snap to ${partnerName}! Resets in 7h 📸`
-        );
-        setTimeout(() => setSentMessage(null), 3000);
       }
-    } catch {
-      // Safe fallback
+      setIsSnapSavedToMemories(true);
+      setSentMessage(`Saved ${snap.author || partnerName}'s snap to your scrapbook! 📸💕`);
+      setTimeout(() => setSentMessage(null), 3000);
+    } catch (err) {
+      console.warn('handleSaveActiveSnapToMemories error:', err);
     }
   };
 
@@ -604,7 +700,13 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                 <View style={styles.sectionTitleGroup}>
                   <Feather name="camera" size={17} color={AppColors.primary} />
                   <Text style={styles.sectionTitle}>
-                    {snap ? `${snap.author || partnerName} sent this snap` : 'Sweet Snap for Partner'}
+                    {stagedSnapUri
+                      ? isReplySnap
+                        ? `Reply Snap for ${partnerName}`
+                        : 'Save Sweet Snap'
+                      : snap
+                      ? `${snap.author || partnerName} sent this snap`
+                      : 'Sweet Snap for Partner'}
                   </Text>
                 </View>
                 <View style={styles.timerChip}>
@@ -615,12 +717,150 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                 </View>
               </View>
               <Text style={styles.sectionDescription}>
-                {snap
+                {stagedSnapUri
+                  ? `Review, add a sweet note, and save to sync with ${partnerName}'s account!`
+                  : snap
                   ? `Sweet snap from ${snap.author || partnerName}. Tap reply to send your photo back!`
                   : `A sweet photo to make ${partnerName} smile. Disappears after 7 hours!`}
               </Text>
 
-              {snap ? (
+              {stagedSnapUri ? (
+                /* STAGING SAVE AREA */
+                <View style={styles.saveAreaCard}>
+                  <View style={styles.stagedImageFrame}>
+                    <Image source={{ uri: stagedSnapUri }} style={styles.stagedImage} />
+                    <View style={styles.stagedBadge}>
+                      <Ionicons
+                        name={isReplySnap ? 'arrow-undo' : 'sparkles'}
+                        size={12}
+                        color="#FF6575"
+                      />
+                      <Text style={styles.stagedBadgeText}>
+                        {isReplySnap ? `Reply to ${snap?.author || partnerName}` : 'Ready to Save & Sync'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.stagedChangeBtn}
+                      onPress={() => handlePickSweetSnap(isReplySnap)}
+                      activeOpacity={0.8}
+                    >
+                      <Feather name="refresh-cw" size={12} color="#FFFFFF" />
+                      <Text style={styles.stagedChangeBtnText}>Change</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Caption Input */}
+                  <View style={styles.captionArea}>
+                    <Text style={styles.captionInputLabel}>Sweet Note or Caption 💕</Text>
+                    <TextInput
+                      style={styles.captionTextInput}
+                      placeholder={`Write something lovely for ${partnerName}...`}
+                      placeholderTextColor="#BAA3A9"
+                      value={stagedCaption}
+                      onChangeText={setStagedCaption}
+                      maxLength={120}
+                    />
+
+                    {/* Quick suggestion pills */}
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.suggestionPillsRow}
+                    >
+                      {[
+                        'Thinking of you 🥰',
+                        'Look at this! 📸',
+                        'My whole heart ❤️',
+                        'Wish you were here 🌸',
+                        'Just for you ✨',
+                      ].map((pill, idx) => (
+                        <TouchableOpacity
+                          key={idx}
+                          style={styles.suggestionPill}
+                          onPress={() => setStagedCaption(pill)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.suggestionPillText}>{pill}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  {/* Save to Memories Toggle */}
+                  <TouchableOpacity
+                    style={styles.memoryToggleRow}
+                    onPress={() => setIsSavingToMemories(!isSavingToMemories)}
+                    activeOpacity={0.8}
+                  >
+                    <View
+                      style={[
+                        styles.checkboxBox,
+                        isSavingToMemories && styles.checkboxBoxActive,
+                      ]}
+                    >
+                      {isSavingToMemories && (
+                        <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.memoryToggleTitle}>
+                        Also save to Our Memories Keepsakes 📸
+                      </Text>
+                      <Text style={styles.memoryToggleSubtitle}>
+                        Keeps this photo forever in your shared scrapbook even after 7h reset!
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Save Area Action Buttons */}
+                  <View style={styles.saveAreaActionsRow}>
+                    <TouchableOpacity
+                      style={styles.cancelStagedBtn}
+                      onPress={handleCancelStagedSnap}
+                      activeOpacity={0.75}
+                      disabled={isUploadingSnap}
+                    >
+                      <Text style={styles.cancelStagedBtnText}>Cancel</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.confirmSaveSnapBtn,
+                        isUploadingSnap && styles.confirmSaveSnapBtnDisabled,
+                      ]}
+                      onPress={handleConfirmSaveSnap}
+                      activeOpacity={0.85}
+                      disabled={isUploadingSnap}
+                    >
+                      {isUploadingSnap ? (
+                        <View style={styles.uploadingRow}>
+                          <ActivityIndicator
+                            size="small"
+                            color="#FFFFFF"
+                            style={{ marginRight: 6 }}
+                          />
+                          <Text style={styles.confirmSaveSnapBtnText}>
+                            Syncing with {partnerName}... ☁️
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.uploadingRow}>
+                          <Ionicons
+                            name="cloud-upload"
+                            size={15}
+                            color="#FFFFFF"
+                            style={{ marginRight: 6 }}
+                          />
+                          <Text style={styles.confirmSaveSnapBtnText}>
+                            {isReplySnap ? 'Save & Send Reply Snap' : 'Save & Sync Snap'}
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : snap ? (
+                /* ACTIVE SNAP VIEW */
                 <View style={styles.snapPreviewFrame}>
                   <Image source={{ uri: snap.imageUri }} style={styles.snapImage} />
                   <View style={styles.snapOverlayTag}>
@@ -630,14 +870,40 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                     </Text>
                   </View>
 
+                  {snap.caption ? (
+                    <View style={styles.snapCaptionOverlay}>
+                      <Text style={styles.snapCaptionText} numberOfLines={2}>
+                        {snap.caption}
+                      </Text>
+                    </View>
+                  ) : null}
+
                   <View style={styles.snapActionsRow}>
                     <TouchableOpacity
+                      style={[
+                        styles.saveToMemoriesBtn,
+                        isSnapSavedToMemories && styles.saveToMemoriesBtnActive,
+                      ]}
+                      onPress={handleSaveActiveSnapToMemories}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={isSnapSavedToMemories ? 'bookmark' : 'bookmark-outline'}
+                        size={13}
+                        color="#FFFFFF"
+                      />
+                      <Text style={styles.saveToMemoriesBtnText}>
+                        {isSnapSavedToMemories ? 'Saved 💕' : 'Save to Memories'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
                       style={styles.changeSnapBtn}
-                      onPress={handlePickSweetSnap}
+                      onPress={() => handlePickSweetSnap(true)}
                       activeOpacity={0.8}
                     >
                       <Feather name="corner-up-left" size={13} color="#FFFFFF" />
-                      <Text style={styles.changeSnapBtnText}>Reply with Snap</Text>
+                      <Text style={styles.changeSnapBtnText}>Reply Snap</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -650,9 +916,10 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                   </View>
                 </View>
               ) : (
+                /* NO ACTIVE SNAP EMPTY STATE */
                 <TouchableOpacity
                   style={styles.emptySnapBox}
-                  onPress={handlePickSweetSnap}
+                  onPress={() => handlePickSweetSnap(false)}
                   activeOpacity={0.82}
                 >
                   <View style={styles.snapCameraCircle}>
@@ -1150,7 +1417,216 @@ const styles = StyleSheet.create({
     bottom: 10,
     right: 10,
     flexDirection: 'row',
+    gap: 6,
+  },
+  saveToMemoriesBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(235, 78, 120, 0.92)',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  saveToMemoriesBtnActive: {
+    backgroundColor: '#388E3C',
+  },
+  saveToMemoriesBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  snapCaptionOverlay: {
+    position: 'absolute',
+    bottom: 44,
+    left: 10,
+    right: 10,
+    backgroundColor: 'rgba(30, 20, 25, 0.72)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  snapCaptionText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  saveAreaCard: {
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    borderWidth: 1.5,
+    borderColor: '#FFE0E6',
+    padding: 12,
+    gap: 10,
+  },
+  stagedImageFrame: {
+    width: '100%',
+    height: 200,
+    borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#FFE8EC',
+  },
+  stagedImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  stagedBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 220, 230, 0.8)',
+  },
+  stagedBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: AppColors.primary,
+  },
+  stagedChangeBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 20, 25, 0.65)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    gap: 4,
+  },
+  stagedChangeBtnText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  captionArea: {
+    gap: 6,
+  },
+  captionInputLabel: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: AppColors.textPrimary,
+  },
+  captionTextInput: {
+    backgroundColor: 'rgba(255, 245, 247, 0.95)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFD9E1',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: AppColors.textPrimary,
+  },
+  suggestionPillsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  suggestionPill: {
+    backgroundColor: 'rgba(255, 235, 240, 0.85)',
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: '#FFC8D4',
+  },
+  suggestionPillText: {
+    fontSize: 11,
+    color: AppColors.primary,
+    fontWeight: '600',
+  },
+  memoryToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 247, 249, 0.85)',
+    padding: 10,
+    borderRadius: 12,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 225, 0.7)',
+  },
+  checkboxBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#FFB8C6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  checkboxBoxActive: {
+    backgroundColor: AppColors.primary,
+    borderColor: AppColors.primary,
+  },
+  memoryToggleTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: AppColors.textPrimary,
+  },
+  memoryToggleSubtitle: {
+    fontSize: 10,
+    color: AppColors.textSecondary,
+    marginTop: 1,
+  },
+  saveAreaActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
+    marginTop: 4,
+  },
+  cancelStagedBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 235, 238, 0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 225, 0.8)',
+  },
+  cancelStagedBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: AppColors.textSecondary,
+  },
+  confirmSaveSnapBtn: {
+    flex: 1,
+    backgroundColor: AppColors.primary,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  confirmSaveSnapBtnDisabled: {
+    opacity: 0.7,
+  },
+  confirmSaveSnapBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  uploadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   changeSnapBtn: {
     flexDirection: 'row',

@@ -631,7 +631,9 @@ export const FirestoreService = {
     try {
       const code = inviteCode.trim().toUpperCase();
       const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      const coupleRef = doc(db, 'couples', code);
       await setDoc(syncRef, { snap, updatedAt: Date.now() }, { merge: true });
+      await setDoc(coupleRef, { lastSnapUpdated: Date.now() }, { merge: true });
     } catch (err) {
       console.warn('Firestore syncSnap error:', err);
     }
