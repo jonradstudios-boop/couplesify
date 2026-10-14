@@ -1,5 +1,6 @@
 import StorageService, { SharedDoodle } from './StorageService';
 import RealtimeService from './RealtimeService';
+import FirestoreService from './FirestoreService';
 
 export const WidgetSyncService = {
   /**
@@ -10,8 +11,14 @@ export const WidgetSyncService = {
       // 1. Cache to local storage
       await StorageService.saveSharedDoodle(doodle);
 
-      // 2. Broadcast to Realtime WebSocket channel for instant partner screen update
+      // 2. Broadcast via RealtimeService
       await RealtimeService.broadcastDoodle(doodle);
+
+      // 3. Persist to Firestore
+      const profile = await StorageService.getProfile();
+      if (profile?.inviteCode) {
+        await FirestoreService.syncDoodle(profile.inviteCode, doodle);
+      }
 
       return {
         success: true,

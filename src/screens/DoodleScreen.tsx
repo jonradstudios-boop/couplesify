@@ -16,6 +16,8 @@ import DoodleCanvas from '../components/DoodleCanvas';
 import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import StorageService, { SharedDoodle } from '../services/StorageService';
 import WidgetSyncService from '../services/WidgetSyncService';
+import RealtimeService from '../services/RealtimeService';
+import FirestoreService from '../services/FirestoreService';
 
 interface DoodleScreenProps {
   onBack: () => void;
@@ -28,10 +30,32 @@ export const DoodleScreen: React.FC<DoodleScreenProps> = ({ onBack }) => {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    loadDoodle();
+    let unsubFirestore: (() => void) | undefined;
+    const unsubRealtime = RealtimeService.on('doodle', (doodle) => {
+      if (doodle) {
+        setActiveDoodle(doodle);
+        StorageService.saveSharedDoodle(doodle);
+      }
+    });
+
+    loadDoodle().then((code) => {
+      if (code) {
+        unsubFirestore = FirestoreService.subscribeToDoodle(code, (doodle) => {
+          if (doodle) {
+            setActiveDoodle(doodle);
+            StorageService.saveSharedDoodle(doodle);
+          }
+        });
+      }
+    });
+
+    return () => {
+      unsubRealtime();
+      if (unsubFirestore) unsubFirestore();
+    };
   }, []);
 
-  const loadDoodle = async () => {
+  const loadDoodle = async (): Promise<string | null> => {
     const profile = await StorageService.getProfile();
     if (profile?.partnerName) setPartnerName(profile.partnerName);
     if (profile?.userName) setUserName(profile.userName);
@@ -39,6 +63,7 @@ export const DoodleScreen: React.FC<DoodleScreenProps> = ({ onBack }) => {
     if (saved) {
       setActiveDoodle(saved);
     }
+    return profile?.inviteCode || null;
   };
 
   const handleSaveDoodle = async (newDoodle: SharedDoodle) => {

@@ -107,11 +107,16 @@ export const MemoryScreen: React.FC = () => {
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
           aspect: [4, 3],
-          quality: 0.85,
+          quality: 0.6,
+          base64: true,
         });
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
-          setSelectedPhotoUri(result.assets[0].uri);
+          const asset = result.assets[0];
+          const uri = asset.base64
+            ? `data:image/jpeg;base64,${asset.base64}`
+            : asset.uri;
+          setSelectedPhotoUri(uri);
         }
       }
     } catch {

@@ -25,6 +25,7 @@ import StorageService, {
   SharedDoodle,
 } from '../services/StorageService';
 import RealtimeService from '../services/RealtimeService';
+import FirestoreService from '../services/FirestoreService';
 
 interface LoveNudgeModalProps {
   visible: boolean;
@@ -85,11 +86,38 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     }
   }, [profile]);
 
-  // Load all hub data whenever modal becomes visible
+  // Load all hub data whenever modal becomes visible & subscribe to live updates
   useEffect(() => {
     if (visible) {
       loadHubData();
     }
+
+    const unsubSnap = RealtimeService.on('snap', (newSnap) => {
+      if (newSnap) {
+        setSnap(newSnap);
+        StorageService.saveEphemeralSnap(newSnap);
+      }
+    });
+
+    const unsubVoice = RealtimeService.on('voice', (newVoice) => {
+      if (newVoice) {
+        setVoiceNote(newVoice);
+        StorageService.saveSweetVoiceNote(newVoice);
+      }
+    });
+
+    const unsubDoodle = RealtimeService.on('doodle', (newDoodle) => {
+      if (newDoodle) {
+        setSharedDoodle(newDoodle);
+        StorageService.saveSharedDoodle(newDoodle);
+      }
+    });
+
+    return () => {
+      unsubSnap();
+      unsubVoice();
+      unsubDoodle();
+    };
   }, [visible, loadHubData]);
 
   // Periodic timer for 7-hour snap countdown
@@ -129,20 +157,31 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.85,
+        quality: 0.6,
+        base64: true,
       });
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
+        const asset = res.assets[0];
+        const imageUri = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+
         const isReply = !!snap;
         const newSnap: EphemeralSnap = {
           id: `snap-${Date.now()}`,
-          imageUri: res.assets[0].uri,
+          imageUri,
           timestamp: Date.now(),
           author: userName || 'You',
           caption: isReply ? `Reply to ${snap?.author || partnerName} 💕` : 'Uploaded with love 💕',
         };
         setSnap(newSnap);
         await StorageService.saveEphemeralSnap(newSnap);
+        await RealtimeService.broadcastSnap(newSnap);
+        if (profile?.inviteCode) {
+          await FirestoreService.syncSnap(profile.inviteCode, newSnap);
+        }
+
         setSentMessage(
           isReply
             ? `Replied to snap for ${partnerName}! 📸`
@@ -259,6 +298,9 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     setSharedDoodle(doodle);
     await StorageService.saveSharedDoodle(doodle);
     await RealtimeService.broadcastDoodle(doodle);
+    if (profile?.inviteCode) {
+      await FirestoreService.syncDoodle(profile.inviteCode, doodle);
+    }
     setSentMessage('Doodle saved & shared with partner! 🎨');
     setTimeout(() => setSentMessage(null), 3000);
   };
@@ -269,6 +311,9 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     } catch {}
     setSharedDoodle(null);
     await StorageService.saveSharedDoodle(null);
+    if (profile?.inviteCode) {
+      await FirestoreService.syncDoodle(profile.inviteCode, null);
+    }
     setSentMessage('Shared doodle cleared! 🎨');
     setTimeout(() => setSentMessage(null), 2500);
   };
@@ -329,6 +374,10 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
 
     setVoiceNote(newNote);
     await StorageService.saveSweetVoiceNote(newNote);
+    await RealtimeService.broadcastVoice(newNote);
+    if (profile?.inviteCode) {
+      await FirestoreService.syncVoiceNote(profile.inviteCode, newNote);
+    }
     setRecordingSeconds(0);
     setSentMessage(`Sweet voice whisper saved for ${partnerName}! 🎙️`);
     setTimeout(() => setSentMessage(null), 3000);

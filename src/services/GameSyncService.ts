@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import StorageService, { CoupleProfile } from './StorageService';
+import FirestoreService from './FirestoreService';
+import RealtimeService from './RealtimeService';
 
 export interface CustomPromptItem {
   id: string;
@@ -47,11 +49,6 @@ const STORAGE_KEYS = {
 /**
  * GameSyncService manages duo two-player room state, game-specific match codes,
  * in-game invites (COD Mobile / Free Fire style), turn shuffling, custom prompts, and answers.
- * 
- * ARCHITECTURE FOR FIRESTORE:
- * When adding Firebase Firestore, replace the local AsyncStorage getters/setters
- * with onSnapshot() listeners and setDoc() / updateDoc() calls to:
- * `couples/{coupleId}/game_sessions/active`
  */
 export const GameSyncService = {
   async getDuoRoomState(): Promise<DuoRoomState> {
@@ -66,7 +63,6 @@ export const GameSyncService = {
         inviteCode: profile.inviteCode || 'PAIR-7729',
         userName: profile.userName || 'You',
         partnerName: profile.partnerName || 'Partner',
-        // By default, if paired or simulated, partner is connected
         isPartnerConnected: profile.isPaired || true,
         currentTurn: 'user',
         scores: { user: 0, partner: 0 },
@@ -78,7 +74,6 @@ export const GameSyncService = {
       }
 
       const parsed: DuoRoomState = JSON.parse(raw);
-      // Keep names synced with profile
       parsed.userName = profile.userName || 'You';
       parsed.partnerName = profile.partnerName || 'Partner';
       parsed.inviteCode = profile.inviteCode || 'PAIR-7729';
@@ -103,8 +98,6 @@ export const GameSyncService = {
   async saveDuoRoomState(state: DuoRoomState): Promise<void> {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.DUO_ROOM, JSON.stringify(state));
-      // FIRESTORE SYNC HOOK:
-      // await setDoc(doc(db, 'couples', state.roomId, 'games', 'room'), state, { merge: true });
     } catch (err) {
       console.warn('Failed to save duo room state:', err);
     }
@@ -141,6 +134,12 @@ export const GameSyncService = {
       timestamp: Date.now(),
     };
     await AsyncStorage.setItem(STORAGE_KEYS.PENDING_GAME_INVITE, JSON.stringify(invite));
+
+    const profile = await StorageService.getProfile();
+    if (profile?.inviteCode) {
+      await FirestoreService.syncInGameInvite(profile.inviteCode, invite);
+      await RealtimeService.broadcastGameMove('invite', { invite });
+    }
     return invite;
   },
 
@@ -156,6 +155,10 @@ export const GameSyncService = {
   async clearPendingGameInvite(): Promise<void> {
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.PENDING_GAME_INVITE);
+      const profile = await StorageService.getProfile();
+      if (profile?.inviteCode) {
+        await FirestoreService.syncInGameInvite(profile.inviteCode, null);
+      }
     } catch {}
   },
 
@@ -214,8 +217,6 @@ export const GameSyncService = {
       const all = await this.getCustomPrompts();
       const updated = [newItem, ...all];
       await AsyncStorage.setItem(STORAGE_KEYS.CUSTOM_PROMPTS, JSON.stringify(updated));
-      // FIRESTORE SYNC HOOK:
-      // await addDoc(collection(db, 'couples', roomId, 'custom_prompts'), newItem);
     } catch (err) {
       console.warn('Failed to save custom prompt:', err);
     }
@@ -263,8 +264,24 @@ export const GameSyncService = {
       all[promptId] = current;
 
       await AsyncStorage.setItem(STORAGE_KEYS.PROMPT_ANSWERS, JSON.stringify(all));
-      // FIRESTORE SYNC HOOK:
-      // await setDoc(doc(db, 'couples', roomId, 'answers', promptId), current, { merge: true });
+
+      const profile = await StorageService.getProfile();
+      if (profile?.inviteCode) {
+        await FirestoreService.syncTruthOrDare(profile.inviteCode, {
+          promptKey: promptId,
+          promptId,
+          answer,
+          author: author === 'user' ? profile.userName : profile.partnerName,
+          updatedAt: Date.now(),
+        });
+        await RealtimeService.broadcastGameMove('tod_answer', {
+          promptKey: promptId,
+          promptId,
+          answer,
+          author,
+        });
+      }
+
       return current;
     } catch {
       return { promptId, updatedAt: Date.now(), [author === 'user' ? 'userAnswer' : 'partnerAnswer']: answer };

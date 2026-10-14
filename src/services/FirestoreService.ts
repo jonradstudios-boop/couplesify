@@ -557,14 +557,42 @@ export const FirestoreService = {
   },
 
   /**
+   * Subscribe to Scrapbook Pages in real-time
+   */
+  subscribeToScrapbookPages(
+    inviteCode: string,
+    onPages: (pages: ScrapbookPageData[]) => void
+  ): () => void {
+    if (!isInitialized || !db || !inviteCode) return () => {};
+    try {
+      const code = inviteCode.trim().toUpperCase();
+      const ref = doc(db, 'couples', code, 'scrapbook', 'pages');
+      return onSnapshot(
+        ref,
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            if (Array.isArray(data?.pages)) {
+              onPages(data.pages);
+            }
+          }
+        },
+        (err) => console.warn('subscribeToScrapbookPages error:', err)
+      );
+    } catch {
+      return () => {};
+    }
+  },
+
+  /**
    * Sync Ephemeral Snap to Cloud
    */
   async syncSnap(inviteCode: string, snap: EphemeralSnap | null): Promise<void> {
     if (!isInitialized || !db || !inviteCode) return;
     try {
       const code = inviteCode.trim().toUpperCase();
-      const ref = doc(db, 'couples', code, 'active_sync', 'snap');
-      await setDoc(ref, { snap, updatedAt: Date.now() }, { merge: true });
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      await setDoc(syncRef, { snap, updatedAt: Date.now() }, { merge: true });
     } catch (err) {
       console.warn('Firestore syncSnap error:', err);
     }
@@ -577,29 +605,254 @@ export const FirestoreService = {
     if (!isInitialized || !db || !inviteCode) return;
     try {
       const code = inviteCode.trim().toUpperCase();
-      const ref = doc(db, 'couples', code, 'active_sync', 'voice');
-      await setDoc(ref, { note, updatedAt: Date.now() }, { merge: true });
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      await setDoc(syncRef, { voice: note, updatedAt: Date.now() }, { merge: true });
     } catch (err) {
       console.warn('Firestore syncVoiceNote error:', err);
     }
   },
 
   /**
-   * Sync Shared Doodle to Cloud
+   * Sync Shared Doodle (Widget Canvas) to Cloud
    */
   async syncDoodle(inviteCode: string, doodle: SharedDoodle | null): Promise<void> {
     if (!isInitialized || !db || !inviteCode) return;
     try {
       const code = inviteCode.trim().toUpperCase();
-      const ref = doc(db, 'couples', code, 'active_sync', 'doodle');
-      await setDoc(ref, { doodle, updatedAt: Date.now() }, { merge: true });
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      await setDoc(syncRef, { doodle, updatedAt: Date.now() }, { merge: true });
     } catch (err) {
       console.warn('Firestore syncDoodle error:', err);
     }
   },
 
   /**
-   * Listen to Live Couple Sync Updates
+   * Subscribe to Shared Doodle in real-time
+   */
+  subscribeToDoodle(
+    inviteCode: string,
+    onDoodle: (doodle: SharedDoodle | null) => void
+  ): () => void {
+    if (!isInitialized || !db || !inviteCode) return () => {};
+    try {
+      const code = inviteCode.trim().toUpperCase();
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      return onSnapshot(
+        syncRef,
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            onDoodle(data?.doodle || null);
+          }
+        },
+        (err) => console.warn('subscribeToDoodle error:', err)
+      );
+    } catch {
+      return () => {};
+    }
+  },
+
+  /**
+   * Sync Partner Mood to Cloud
+   */
+  async syncMood(
+    inviteCode: string,
+    mood: string,
+    senderName: string,
+    senderUid?: string
+  ): Promise<void> {
+    if (!isInitialized || !db || !inviteCode) return;
+    try {
+      const code = inviteCode.trim().toUpperCase();
+      const timestamp = Date.now();
+
+      // 1. Write to live sync doc for instant real-time dispatch
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      await setDoc(
+        syncRef,
+        {
+          mood: { mood, senderId: senderName, senderUid, timestamp },
+          lastUpdated: timestamp,
+        },
+        { merge: true }
+      );
+
+      // 2. Write to room document for persistent storage
+      const coupleRef = doc(db, 'couples', code);
+      const safeKey = senderName ? `mood_${senderName.replace(/[^a-zA-Z0-9]/g, '_')}` : 'userMood';
+      await setDoc(
+        coupleRef,
+        {
+          [safeKey]: mood,
+          lastMoodTimestamp: timestamp,
+          lastUpdated: timestamp,
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('Firestore syncMood error:', err);
+    }
+  },
+
+  /**
+   * Sync In-Game Match Invite to Cloud
+   */
+  async syncInGameInvite(inviteCode: string, invite: any | null): Promise<void> {
+    if (!isInitialized || !db || !inviteCode) return;
+    try {
+      const code = inviteCode.trim().toUpperCase();
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      await setDoc(
+        syncRef,
+        {
+          gameInvite: invite,
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('Firestore syncInGameInvite error:', err);
+    }
+  },
+
+  /**
+   * Subscribe to In-Game Invites in real-time
+   */
+  subscribeToInGameInvite(
+    inviteCode: string,
+    onInvite: (invite: any | null) => void
+  ): () => void {
+    if (!isInitialized || !db || !inviteCode) return () => {};
+    try {
+      const code = inviteCode.trim().toUpperCase();
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      return onSnapshot(
+        syncRef,
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            onInvite(data?.gameInvite || null);
+          }
+        },
+        (err) => console.warn('subscribeToInGameInvite error:', err)
+      );
+    } catch {
+      return () => {};
+    }
+  },
+
+  /**
+   * Sync Host Active Game Session (e.g. host starts Tic-Tac-Toe, Truth or Dare, Quiz)
+   */
+  async syncActiveGame(inviteCode: string, gameSession: any | null): Promise<void> {
+    if (!isInitialized || !db || !inviteCode) return;
+    try {
+      const code = inviteCode.trim().toUpperCase();
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      await setDoc(
+        syncRef,
+        {
+          activeGame: gameSession,
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('Firestore syncActiveGame error:', err);
+    }
+  },
+
+  /**
+   * Subscribe to Host Active Game Session in real-time
+   */
+  subscribeToActiveGame(
+    inviteCode: string,
+    onGame: (gameSession: any | null) => void
+  ): () => void {
+    if (!isInitialized || !db || !inviteCode) return () => {};
+    try {
+      const code = inviteCode.trim().toUpperCase();
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      return onSnapshot(
+        syncRef,
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            onGame(data?.activeGame || null);
+          }
+        },
+        (err) => console.warn('subscribeToActiveGame error:', err)
+      );
+    } catch {
+      return () => {};
+    }
+  },
+
+  /**
+   * Sync Truth or Dare state and answers to Cloud
+   */
+  async syncTruthOrDare(inviteCode: string, todState: any): Promise<void> {
+    if (!isInitialized || !db || !inviteCode) return;
+    try {
+      const code = inviteCode.trim().toUpperCase();
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      await setDoc(
+        syncRef,
+        {
+          todState: {
+            ...todState,
+            updatedAt: Date.now(),
+          },
+        },
+        { merge: true }
+      );
+
+      if (todState?.promptId && todState?.answer) {
+        const answerRef = doc(db, 'couples', code, 'answers', todState.promptId);
+        await setDoc(
+          answerRef,
+          {
+            promptId: todState.promptId,
+            answer: todState.answer,
+            author: todState.author,
+            updatedAt: Date.now(),
+          },
+          { merge: true }
+        );
+      }
+    } catch (err) {
+      console.warn('Firestore syncTruthOrDare error:', err);
+    }
+  },
+
+  /**
+   * Subscribe to Truth or Dare real-time updates
+   */
+  subscribeToTruthOrDare(
+    inviteCode: string,
+    onTod: (todState: any | null) => void
+  ): () => void {
+    if (!isInitialized || !db || !inviteCode) return () => {};
+    try {
+      const code = inviteCode.trim().toUpperCase();
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      return onSnapshot(
+        syncRef,
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            onTod(data?.todState || null);
+          }
+        },
+        (err) => console.warn('subscribeToTruthOrDare error:', err)
+      );
+    } catch {
+      return () => {};
+    }
+  },
+
+  /**
+   * Listen to Live Couple Sync Updates (both room document and live/sync doc)
    */
   subscribeToCoupleLiveUpdates(
     inviteCode: string,
@@ -609,19 +862,31 @@ export const FirestoreService = {
       snap?: EphemeralSnap | null;
       voiceNote?: SweetVoiceNote | null;
       doodle?: SharedDoodle | null;
+      partnerMood?: string;
     }) => void
   ): () => void {
     if (!isInitialized || !db || !inviteCode) return () => {};
     try {
       const code = inviteCode.trim().toUpperCase();
       const coupleRef = doc(db, 'couples', code);
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
 
-      return onSnapshot(coupleRef, (snapshot) => {
+      let cachedPartnerName: string | undefined;
+
+      const unsubCouple = onSnapshot(coupleRef, (snapshot) => {
         if (snapshot.exists()) {
-          const d = snapshot.data() as FirestoreCoupleRoom;
+          const d = snapshot.data() as FirestoreCoupleRoom & Record<string, any>;
           const isP1 = currentUserId && d.partner1?.uid === currentUserId;
           const user = isP1 ? d.partner1 : d.partner2 || d.partner1;
           const partner = isP1 ? d.partner2 : d.partner1;
+          cachedPartnerName = partner?.name;
+
+          // Determine partner's saved mood from document
+          let pMood: string | undefined;
+          if (partner?.name) {
+            const partnerMoodKey = `mood_${partner.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            pMood = d[partnerMoodKey];
+          }
 
           onUpdate({
             profile: {
@@ -634,9 +899,37 @@ export const FirestoreService = {
               isPaired: !!d.isPaired,
               partnerOnline: !!partner?.online,
             },
+            partnerMood: pMood,
           });
         }
       });
+
+      const unsubSync = onSnapshot(syncRef, (snap) => {
+        if (snap.exists()) {
+          const d = snap.data();
+          const moodObj = d?.mood;
+          let partnerLiveMood: string | undefined;
+          if (moodObj?.mood) {
+            const isSelf = currentUserId
+              ? moodObj.senderUid === currentUserId
+              : cachedPartnerName && moodObj.senderId !== cachedPartnerName;
+            if (!isSelf) {
+              partnerLiveMood = moodObj.mood;
+            }
+          }
+          onUpdate({
+            snap: d?.snap || null,
+            voiceNote: d?.voice || null,
+            doodle: d?.doodle || null,
+            partnerMood: partnerLiveMood,
+          });
+        }
+      });
+
+      return () => {
+        unsubCouple();
+        unsubSync();
+      };
     } catch {
       return () => {};
     }

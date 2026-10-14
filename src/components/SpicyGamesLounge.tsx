@@ -18,6 +18,9 @@ import AppFonts from '../theme/AppFonts';
 import AnimatedGifEmoji from './AnimatedGifEmoji';
 import SpicyDarkGradientBg from './SpicyDarkGradientBg';
 import GameSyncService, { DuoRoomState, InGameInvite } from '../services/GameSyncService';
+import StorageService from '../services/StorageService';
+import FirestoreService from '../services/FirestoreService';
+import RealtimeService from '../services/RealtimeService';
 import * as Clipboard from 'expo-clipboard';
 import {
   SPICY_NHIE_PROMPTS,
@@ -52,7 +55,6 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
   const [gameCodeInput, setGameCodeInput] = useState('');
   const [gameJoinStatus, setGameJoinStatus] = useState<string | null>(null);
   const [pendingInvitePopup, setPendingInvitePopup] = useState<InGameInvite | null>(null);
-  const [inviteSentStatus, setInviteSentStatus] = useState<string | null>(null);
 
   // Turn Shuffling
   const [todTurn, setTodTurn] = useState<'user' | 'partner'>('user');
@@ -89,6 +91,9 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
   const [savedAnswers, setSavedAnswers] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    let unsubInvite: (() => void) | undefined;
+    let unsubTod: (() => void) | undefined;
+
     const loadDuoData = async () => {
       const room = await GameSyncService.getDuoRoomState();
       setDuoState(room);
@@ -98,9 +103,56 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
       setCustomTruths(customP.filter((p) => p.category === 'truth').map((p) => p.prompt));
       setCustomDares(customP.filter((p) => p.category === 'dare').map((p) => p.prompt));
       setCustomNhie(customP.filter((p) => p.category === 'nhie').map((p) => p.prompt));
+
+      const prof = await StorageService.getProfile();
+      if (prof?.inviteCode) {
+        RealtimeService.setPairingCode(prof.inviteCode);
+        unsubInvite = FirestoreService.subscribeToInGameInvite(prof.inviteCode, (invite) => {
+          if (invite && invite.fromName && invite.fromName !== userName) {
+            setPendingInvitePopup(invite);
+            setIsPartnerConnected(true);
+          } else if (!invite) {
+            setPendingInvitePopup(null);
+          }
+        });
+
+        unsubTod = FirestoreService.subscribeToTruthOrDare(prof.inviteCode, (todState) => {
+          if (todState) {
+            const key = todState.promptKey || todState.promptId;
+            if (key && todState.answer) {
+              setSavedAnswers((prev) => ({ ...prev, [key]: todState.answer }));
+            }
+            if (todState.todTurn) {
+              setTodTurn(todState.todTurn);
+            }
+          }
+        });
+      }
     };
     loadDuoData();
-  }, []);
+
+    const unsubRealtime = RealtimeService.on('game', (data) => {
+      if (data?.gameId === 'tod_answer') {
+        const key = data.promptKey || data.promptId;
+        if (key && data.answer) {
+          setSavedAnswers((prev) => ({ ...prev, [key]: data.answer }));
+        }
+      }
+      if (data?.gameId === 'turn' && data.todTurn) {
+        setTodTurn(data.todTurn);
+      }
+      if (data?.gameId === 'invite' && data.invite && data.invite.fromName !== userName) {
+        setPendingInvitePopup(data.invite);
+        setIsPartnerConnected(true);
+      }
+    });
+
+    return () => {
+      if (unsubInvite) unsubInvite();
+      if (unsubTod) unsubTod();
+      unsubRealtime();
+    };
+  }, [userName, partnerName]);
 
   const handleTogglePartnerConnect = async () => {
     const next = !isPartnerConnected;
@@ -179,8 +231,9 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
     await GameSyncService.sendInGameInvite('Spicy Games Lounge');
-    setInviteSentStatus(`🎮 In-Game invite sent to ${partnerName}!`);
-    setTimeout(() => setInviteSentStatus(null), 3500);
+    setIsInviteModalOpen(false);
+    setGameJoinStatus(`🎮 In-Game invite sent to ${partnerName}! Waiting for them to join...`);
+    setTimeout(() => setGameJoinStatus(null), 3500);
   };
 
   const handleSimulateReceiveInvite = () => {
@@ -211,6 +264,10 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
             }
           : prev
       );
+      const prof = await StorageService.getProfile();
+      if (prof?.inviteCode) {
+        await FirestoreService.syncInGameInvite(prof.inviteCode, null);
+      }
       setPendingInvitePopup(null);
       setIsInviteModalOpen(false);
       try {
@@ -223,8 +280,12 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
     }
   };
 
-  const handleDeclineInvite = () => {
+  const handleDeclineInvite = async () => {
     setPendingInvitePopup(null);
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      await FirestoreService.syncInGameInvite(prof.inviteCode, null);
+    }
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
@@ -238,7 +299,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
     } catch {}
 
     let count = 0;
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       setTodTurn((prev) => (prev === 'user' ? 'partner' : 'user'));
       count++;
       if (count > 6) {
@@ -246,6 +307,19 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
         const next = Math.random() > 0.5 ? 'user' : 'partner';
         setTodTurn(next);
         setIsShufflingTod(false);
+        const prof = await StorageService.getProfile();
+        if (prof?.inviteCode) {
+          const promptKey = `spicy-tod-${todTab}-${todIndex}`;
+          await FirestoreService.syncTruthOrDare(prof.inviteCode, {
+            promptKey,
+            cardFlipped: todCardFlipped,
+            todType: todTab,
+            todIndex,
+            todTurn: next,
+            updatedAt: Date.now(),
+          });
+          await RealtimeService.broadcastGameMove('turn', { todTurn: next });
+        }
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch {}
@@ -1030,10 +1104,10 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
             </View>
 
             {/* Status or Toast Feedback */}
-            {(gameJoinStatus || inviteSentStatus) && (
+            {gameJoinStatus && (
               <View style={styles.darkGameToastBanner}>
                 <Ionicons name="flame" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.darkGameToastText}>{gameJoinStatus || inviteSentStatus}</Text>
+                <Text style={styles.darkGameToastText}>{gameJoinStatus}</Text>
               </View>
             )}
 

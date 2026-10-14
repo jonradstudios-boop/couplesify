@@ -46,3 +46,7 @@ credentials.json
 # generated native folders
 /ios
 /android
+
+# temp media
+*.mp4
+*.webm

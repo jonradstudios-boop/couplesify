@@ -24,6 +24,8 @@ import StorageService, {
   EphemeralSnap,
 } from '../services/StorageService';
 import RealtimeService from '../services/RealtimeService';
+import FirestoreService from '../services/FirestoreService';
+import AuthService from '../services/AuthService';
 
 interface HomeScreenProps {
   onNavigateToDoodle: () => void;
@@ -45,7 +47,30 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [activeSnap, setActiveSnap] = useState<EphemeralSnap | null>(null);
 
   useEffect(() => {
-    loadData();
+    let unsubCouple: (() => void) | undefined;
+
+    loadData().then(async (prof) => {
+      if (prof?.inviteCode) {
+        RealtimeService.setPairingCode(prof.inviteCode);
+        const currentUser = await AuthService.getCurrentUser();
+
+        // Real-time Firestore snapshot for couple room and live sync
+        unsubCouple = FirestoreService.subscribeToCoupleLiveUpdates(
+          prof.inviteCode,
+          currentUser?.uid,
+          (liveData) => {
+            if (liveData.partnerMood) {
+              setPartnerMood(liveData.partnerMood);
+              StorageService.setPartnerMood(liveData.partnerMood);
+            }
+            if (liveData.snap) {
+              setActiveSnap(liveData.snap);
+              StorageService.saveEphemeralSnap(liveData.snap);
+            }
+          }
+        );
+      }
+    });
 
     // Listen to real-time partner mood and snap updates
     const unsubMood = RealtimeService.on('mood', (data) => {
@@ -61,15 +86,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
     const unsubSnap = RealtimeService.on('snap', (snap) => {
       setActiveSnap(snap);
+      StorageService.saveEphemeralSnap(snap);
     });
 
     return () => {
       unsubMood();
       unsubSnap();
+      if (unsubCouple) unsubCouple();
     };
   }, [profile?.userName]);
 
-  const loadData = async () => {
+  const loadData = async (): Promise<CoupleProfile | null> => {
     const prof = await StorageService.getProfile();
     const uMood = await StorageService.getUserMood();
     const pMood = await StorageService.getPartnerMood();
@@ -85,6 +112,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     } else {
       setTodayMemory(null);
     }
+    return prof;
   };
 
   const handleSelectMood = async (newMood: string) => {
@@ -94,7 +122,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
     // 2. Broadcast to partner with senderId so this device ignores echo
     const sender = profile?.userName || 'me';
-    await RealtimeService.broadcastMood(newMood, sender);
+    const currentUser = await AuthService.getCurrentUser();
+    await RealtimeService.broadcastMood(newMood, sender, currentUser?.uid);
+
+    // 3. Persist to Firestore cloud room
+    if (profile?.inviteCode) {
+      await FirestoreService.syncMood(
+        profile.inviteCode,
+        newMood,
+        profile.userName || 'You',
+        currentUser?.uid
+      );
+    }
   };
 
   const handleTogglePartnerMood = async () => {

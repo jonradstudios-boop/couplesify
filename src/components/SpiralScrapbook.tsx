@@ -26,6 +26,7 @@ import StorageService, {
   CoupleProfile,
 } from '../services/StorageService';
 import PdfExportService from '../services/PdfExportService';
+import FirestoreService from '../services/FirestoreService';
 
 const { width } = Dimensions.get('window');
 const isNative = Platform.OS !== 'web';
@@ -109,13 +110,43 @@ export const SpiralScrapbook: React.FC<SpiralScrapbookProps> = ({
   const [inputPhotoUrl, setInputPhotoUrl] = useState('');
 
   useEffect(() => {
-    loadPages();
-  }, []);
+    let unsubCloud: (() => void) | undefined;
 
-  const loadPages = async () => {
-    const data = await StorageService.getScrapbookPages();
-    setPages(data);
-  };
+    const loadPages = async (): Promise<string | null> => {
+      const data = await StorageService.getScrapbookPages();
+      setPages(data);
+
+      const prof = profile || (await StorageService.getProfile());
+      if (prof?.inviteCode) {
+        try {
+          const cloudPages = await FirestoreService.fetchScrapbookPages(prof.inviteCode);
+          if (cloudPages && cloudPages.length > 0) {
+            setPages(cloudPages);
+            await StorageService.saveScrapbookPages(cloudPages);
+          }
+        } catch (err) {
+          console.warn('Scrapbook cloud load notice:', err);
+        }
+        return prof.inviteCode;
+      }
+      return null;
+    };
+
+    loadPages().then((code) => {
+      if (code) {
+        unsubCloud = FirestoreService.subscribeToScrapbookPages(code, (cloudPages) => {
+          if (cloudPages && cloudPages.length > 0) {
+            setPages(cloudPages);
+            StorageService.saveScrapbookPages(cloudPages);
+          }
+        });
+      }
+    });
+
+    return () => {
+      if (unsubCloud) unsubCloud();
+    };
+  }, [profile]);
 
   // Sizing calculations for two-page open book
   const notebookWidth = Math.min(width - 24, 760);
@@ -231,11 +262,15 @@ export const SpiralScrapbook: React.FC<SpiralScrapbookProps> = ({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.85,
+        quality: 0.6,
+        base64: true,
       });
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
-        const uri = res.assets[0].uri;
+        const asset = res.assets[0];
+        const uri = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
         applyPhotoToSlot(targetPhotoPageIndex, slot, uri);
         setIsPhotoModalOpen(false);
       }
@@ -257,11 +292,15 @@ export const SpiralScrapbook: React.FC<SpiralScrapbookProps> = ({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.85,
+        quality: 0.6,
+        base64: true,
       });
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
-        const uri = res.assets[0].uri;
+        const asset = res.assets[0];
+        const uri = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
         applyPhotoToSlot(targetPhotoPageIndex, slot, uri);
         setIsPhotoModalOpen(false);
       }
@@ -299,6 +338,10 @@ export const SpiralScrapbook: React.FC<SpiralScrapbookProps> = ({
       if (slot === 2) setEditPhotoUri2(uri);
     }
     await StorageService.saveScrapbookPages(updated);
+    const prof = profile || (await StorageService.getProfile());
+    if (prof?.inviteCode) {
+      await FirestoreService.syncScrapbookPages(prof.inviteCode, updated);
+    }
 
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -356,6 +399,10 @@ export const SpiralScrapbook: React.FC<SpiralScrapbookProps> = ({
 
     setPages(updated);
     await StorageService.saveScrapbookPages(updated);
+    const prof = profile || (await StorageService.getProfile());
+    if (prof?.inviteCode) {
+      await FirestoreService.syncScrapbookPages(prof.inviteCode, updated);
+    }
     setIsEditModalOpen(false);
 
     try {
@@ -385,6 +432,10 @@ export const SpiralScrapbook: React.FC<SpiralScrapbookProps> = ({
     const updated = [...pages, newPage];
     setPages(updated);
     await StorageService.saveScrapbookPages(updated);
+    const prof = profile || (await StorageService.getProfile());
+    if (prof?.inviteCode) {
+      await FirestoreService.syncScrapbookPages(prof.inviteCode, updated);
+    }
     setCurrentSpreadIndex(updated.length);
 
     try {
@@ -405,6 +456,10 @@ export const SpiralScrapbook: React.FC<SpiralScrapbookProps> = ({
             const blankPages = await StorageService.resetScrapbookPages();
             setPages(blankPages);
             setCurrentSpreadIndex(0);
+            const prof = profile || (await StorageService.getProfile());
+            if (prof?.inviteCode) {
+              await FirestoreService.syncScrapbookPages(prof.inviteCode, blankPages);
+            }
             setIsEditModalOpen(false);
 
             try {
@@ -429,6 +484,10 @@ export const SpiralScrapbook: React.FC<SpiralScrapbookProps> = ({
     updated.splice(pageIdx + 1, 0, duplicated);
     setPages(updated);
     await StorageService.saveScrapbookPages(updated);
+    const prof = profile || (await StorageService.getProfile());
+    if (prof?.inviteCode) {
+      await FirestoreService.syncScrapbookPages(prof.inviteCode, updated);
+    }
 
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -454,6 +513,10 @@ export const SpiralScrapbook: React.FC<SpiralScrapbookProps> = ({
             setPages(updated);
             setCurrentSpreadIndex((prev) => Math.min(prev, updated.length));
             await StorageService.saveScrapbookPages(updated);
+            const prof = profile || (await StorageService.getProfile());
+            if (prof?.inviteCode) {
+              await FirestoreService.syncScrapbookPages(prof.inviteCode, updated);
+            }
             setIsEditModalOpen(false);
 
             try {

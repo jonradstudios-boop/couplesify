@@ -25,6 +25,8 @@ import StorageService, { CoupleGoal } from '../services/StorageService';
 import SpicyChiliTransition from '../components/SpicyChiliTransition';
 import SpicyGamesLounge from '../components/SpicyGamesLounge';
 import GameSyncService, { DuoRoomState, InGameInvite } from '../services/GameSyncService';
+import FirestoreService from '../services/FirestoreService';
+import RealtimeService from '../services/RealtimeService';
 import * as Clipboard from 'expo-clipboard';
 import {
   MINI_GAME_TRUTHS,
@@ -54,7 +56,6 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
   const [gameCodeInput, setGameCodeInput] = useState('');
   const [gameJoinStatus, setGameJoinStatus] = useState<string | null>(null);
   const [pendingInvitePopup, setPendingInvitePopup] = useState<InGameInvite | null>(null);
-  const [inviteSentStatus, setInviteSentStatus] = useState<string | null>(null);
 
   // Turn Shuffler State for Truth or Dare
   const [todTurn, setTodTurn] = useState<'user' | 'partner'>('user');
@@ -205,13 +206,44 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
     setTimeout(() => setGameJoinStatus(null), 3500);
   };
 
+  const handleOpenGameModal = async (modalId: string) => {
+    setActiveGameModal(modalId);
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      await FirestoreService.syncActiveGame(prof.inviteCode, {
+        gameModalId: modalId,
+        hostName: userName,
+        startedAt: Date.now(),
+      });
+      await RealtimeService.broadcastGameMove('start_game', {
+        gameModalId: modalId,
+        hostName: userName,
+      });
+    }
+  };
+
+  const handleCloseGameModal = async () => {
+    setActiveGameModal(null);
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      await FirestoreService.syncActiveGame(prof.inviteCode, null);
+    }
+  };
+
   const handleSendInGameInvite = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
-    await GameSyncService.sendInGameInvite('Duo Match Lounge');
-    setInviteSentStatus(`🎮 In-Game invite sent to ${partnerName}!`);
-    setTimeout(() => setInviteSentStatus(null), 3500);
+    const invite = await GameSyncService.sendInGameInvite('Duo Match Lounge');
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      await FirestoreService.syncInGameInvite(prof.inviteCode, invite);
+      await RealtimeService.broadcastGameMove('invite', { invite });
+    }
+    // Close the invite dialog immediately so the host isn't stuck with an open popup
+    setIsInviteModalOpen(false);
+    setGameJoinStatus(`🎮 Match invite sent to ${partnerName}! Waiting for them to join...`);
+    setTimeout(() => setGameJoinStatus(null), 4500);
   };
 
   const handleSimulateReceiveInvite = () => {
@@ -242,6 +274,10 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
             }
           : prev
       );
+      const prof = await StorageService.getProfile();
+      if (prof?.inviteCode) {
+        await FirestoreService.syncInGameInvite(prof.inviteCode, null);
+      }
       setPendingInvitePopup(null);
       setIsInviteModalOpen(false);
       try {
@@ -254,14 +290,18 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
     }
   };
 
-  const handleDeclineInvite = () => {
+  const handleDeclineInvite = async () => {
     setPendingInvitePopup(null);
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      await FirestoreService.syncInGameInvite(prof.inviteCode, null);
+    }
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
   };
 
-  const handleShuffleTurn = () => {
+  const handleShuffleTurn = async () => {
     if (isShufflingTurn) return;
     setIsShufflingTurn(true);
     try {
@@ -269,7 +309,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
     } catch {}
 
     let count = 0;
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       setTodTurn((prev) => (prev === 'user' ? 'partner' : 'user'));
       count++;
       if (count > 6) {
@@ -277,6 +317,19 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
         const next = Math.random() > 0.5 ? 'user' : 'partner';
         setTodTurn(next);
         setIsShufflingTurn(false);
+        const prof = await StorageService.getProfile();
+        if (prof?.inviteCode) {
+          const promptKey = `tod-${todType}-${todIndex % TOD_DATA[todType].length}`;
+          await FirestoreService.syncTruthOrDare(prof.inviteCode, {
+            promptKey,
+            cardFlipped,
+            todType,
+            todIndex,
+            todTurn: next,
+            updatedAt: Date.now(),
+          });
+          await RealtimeService.broadcastGameMove('turn', { todTurn: next });
+        }
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch {}
@@ -311,6 +364,26 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
     const ans = answerInputText.trim();
     setSavedAnswers((prev) => ({ ...prev, [promptKey]: ans }));
     await GameSyncService.savePromptAnswer(promptKey, ans, todTurn);
+
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      await FirestoreService.syncTruthOrDare(prof.inviteCode, {
+        promptKey,
+        answer: ans,
+        author: todTurn === 'user' ? userName : partnerName,
+        cardFlipped: true,
+        todType,
+        todIndex,
+        todTurn,
+        updatedAt: Date.now(),
+      });
+      await RealtimeService.broadcastGameMove('tod_answer', {
+        promptKey,
+        answer: ans,
+        author: todTurn === 'user' ? userName : partnerName,
+      });
+    }
+
     setAnswerInputText('');
     setShowAnswerInput(false);
     try {
@@ -319,8 +392,80 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    let unsubInvite: (() => void) | undefined;
+    let unsubGame: (() => void) | undefined;
+    let unsubTod: (() => void) | undefined;
+
+    loadData().then(async () => {
+      const prof = await StorageService.getProfile();
+      if (prof?.inviteCode) {
+        RealtimeService.setPairingCode(prof.inviteCode);
+
+        // 1. Subscribe to In-Game Match Invites
+        unsubInvite = FirestoreService.subscribeToInGameInvite(prof.inviteCode, (invite) => {
+          if (invite && invite.fromName && invite.fromName !== userName) {
+            setPendingInvitePopup(invite);
+            setIsPartnerConnected(true);
+          } else if (!invite) {
+            setPendingInvitePopup(null);
+          }
+        });
+
+        // 2. Subscribe to Host Active Game Session (Auto-starts game for partner!)
+        unsubGame = FirestoreService.subscribeToActiveGame(prof.inviteCode, (gameSession) => {
+          if (gameSession && gameSession.gameModalId) {
+            if (gameSession.hostName !== userName) {
+              setActiveGameModal(gameSession.gameModalId);
+            }
+          } else if (gameSession === null) {
+            setActiveGameModal(null);
+          }
+        });
+
+        // 3. Subscribe to Live Truth or Dare Turns & Answers
+        unsubTod = FirestoreService.subscribeToTruthOrDare(prof.inviteCode, (todState) => {
+          if (todState) {
+            if (todState.promptKey && todState.answer) {
+              setSavedAnswers((prev) => ({ ...prev, [todState.promptKey]: todState.answer }));
+            }
+            if (todState.cardFlipped !== undefined) {
+              setCardFlipped(todState.cardFlipped);
+            }
+            if (todState.todType) {
+              setTodType(todState.todType);
+            }
+            if (typeof todState.todIndex === 'number') {
+              setTodIndex(todState.todIndex);
+            }
+            if (todState.todTurn) {
+              setTodTurn(todState.todTurn);
+            }
+          }
+        });
+      }
+    });
+
+    // 4. Realtime Broadcast Listener for instant WebSocket responses
+    const unsubRealtimeGame = RealtimeService.on('game', (data) => {
+      if (data?.gameId === 'start_game' && data.gameModalId && data.hostName !== userName) {
+        setActiveGameModal(data.gameModalId);
+      }
+      if (data?.gameId === 'tod_answer' && data.promptKey && data.answer) {
+        setSavedAnswers((prev) => ({ ...prev, [data.promptKey]: data.answer }));
+      }
+      if (data?.gameId === 'invite' && data.invite && data.invite.fromName !== userName) {
+        setPendingInvitePopup(data.invite);
+        setIsPartnerConnected(true);
+      }
+    });
+
+    return () => {
+      if (unsubInvite) unsubInvite();
+      if (unsubGame) unsubGame();
+      if (unsubTod) unsubTod();
+      unsubRealtimeGame();
+    };
+  }, [userName, partnerName]);
 
   useEffect(() => {
     const isSpicy = viewMode === 'spicy_games' || isSpicyTransitionActive;
@@ -950,7 +1095,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
                   emoji="⚔️"
                   bgColor="rgba(244, 239, 255, 0.60)"
                   badgeText="Live"
-                  onPress={() => setActiveGameModal('ttt')}
+                  onPress={() => handleOpenGameModal('ttt')}
                 />
                 <GameTile
                   title="Truth or Dare"
@@ -958,7 +1103,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
                   emoji="🃏"
                   bgColor="rgba(235, 248, 242, 0.60)"
                   badgeText="Cards"
-                  onPress={() => setActiveGameModal('tod')}
+                  onPress={() => handleOpenGameModal('tod')}
                 />
               </View>
 
@@ -970,7 +1115,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
                   emoji="💌"
                   bgColor="rgba(255, 242, 244, 0.60)"
                   badgeText="Daily"
-                  onPress={() => setActiveGameModal('quiz')}
+                  onPress={() => handleOpenGameModal('quiz')}
                 />
               </View>
             </View>
@@ -988,7 +1133,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
                 <Text style={styles.gameModalTitle}>Daily Couple Quiz 💌</Text>
-                <TouchableOpacity onPress={() => setActiveGameModal(null)}>
+                <TouchableOpacity onPress={handleCloseGameModal}>
                   <Ionicons name="close" size={22} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
@@ -1051,7 +1196,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
                 <Text style={styles.gameModalTitle}>Live Tic-Tac-Toe</Text>
-                <TouchableOpacity onPress={() => setActiveGameModal(null)}>
+                <TouchableOpacity onPress={handleCloseGameModal}>
                   <Ionicons name="close" size={22} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
@@ -1126,7 +1271,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
                 <Text style={styles.gameModalTitle}>Spicy Romantic Wheel 🎡</Text>
-                <TouchableOpacity onPress={() => setActiveGameModal(null)}>
+                <TouchableOpacity onPress={handleCloseGameModal}>
                   <Ionicons name="close" size={22} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
@@ -1198,7 +1343,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={() => setActiveGameModal(null)}>
+                <TouchableOpacity onPress={handleCloseGameModal}>
                   <Ionicons name="close" size={22} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
@@ -1404,7 +1549,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
                 <Text style={styles.gameModalTitle}>Fantasy Romance Dice 🎲</Text>
-                <TouchableOpacity onPress={() => setActiveGameModal(null)}>
+                <TouchableOpacity onPress={handleCloseGameModal}>
                   <Ionicons name="close" size={22} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
@@ -1445,7 +1590,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
                 <Text style={styles.gameModalTitle}>Never Have I Ever 🙈</Text>
-                <TouchableOpacity onPress={() => setActiveGameModal(null)}>
+                <TouchableOpacity onPress={handleCloseGameModal}>
                   <Ionicons name="close" size={22} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
@@ -1507,7 +1652,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
                 <Text style={styles.gameModalTitle}>Sensory Touch Challenge 💋</Text>
-                <TouchableOpacity onPress={() => setActiveGameModal(null)}>
+                <TouchableOpacity onPress={handleCloseGameModal}>
                   <Ionicons name="close" size={22} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
@@ -1588,10 +1733,10 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onSpicyModeChange }) =
               </View>
 
               {/* Status or Toast Feedback */}
-              {(gameJoinStatus || inviteSentStatus) && (
+              {gameJoinStatus && (
                 <View style={styles.gameToastBanner}>
                   <Ionicons name="sparkles" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.gameToastText}>{gameJoinStatus || inviteSentStatus}</Text>
+                  <Text style={styles.gameToastText}>{gameJoinStatus}</Text>
                 </View>
               )}
 
