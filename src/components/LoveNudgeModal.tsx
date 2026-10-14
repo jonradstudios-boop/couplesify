@@ -60,6 +60,7 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
   const [isSavingToMemories, setIsSavingToMemories] = useState<boolean>(true);
   const [isUploadingSnap, setIsUploadingSnap] = useState<boolean>(false);
   const [isSnapSavedToMemories, setIsSnapSavedToMemories] = useState<boolean>(false);
+  const [isProcessingSnap, setIsProcessingSnap] = useState<boolean>(false);
 
   // Anniversary state & calculations
   const [anniversaryInput, setAnniversaryInput] = useState(
@@ -184,6 +185,22 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
   }, [visible, snap]);
 
   // 1. Ephemeral Snap Actions (7 hours reset + Staging Save Area)
+  const processAndStageAsset = async (asset: ImagePicker.ImagePickerAsset, isReply: boolean) => {
+    setIsProcessingSnap(true);
+    try {
+      const compressedUri = await ImageCompressService.processPickerAsset(asset);
+      setStagedSnapUri(compressedUri);
+      setIsReplySnap(isReply);
+      setStagedCaption(isReply ? (snap?.author ? `Reply to ${snap.author} 💕` : 'Reply snap 💕') : '');
+      setIsSnapSavedToMemories(false);
+    } catch (err) {
+      console.warn('processAndStageAsset error:', err);
+      Alert.alert('Photo Error', 'Could not optimize photo. Please try another image.');
+    } finally {
+      setIsProcessingSnap(false);
+    }
+  };
+
   const handlePickSweetSnap = async (isReply = false) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -194,22 +211,41 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
       }
 
       const res = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.45,
-        base64: true,
+        quality: 0.7,
       });
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
-        const compressedUri = await ImageCompressService.processPickerAsset(res.assets[0]);
-        setStagedSnapUri(compressedUri);
-        setIsReplySnap(isReply);
-        setStagedCaption(isReply ? (snap?.author ? `Reply to ${snap.author} 💕` : 'Reply snap 💕') : '');
-        setIsSnapSavedToMemories(false);
+        await processAndStageAsset(res.assets[0], isReply);
       }
     } catch (err) {
       console.warn('handlePickSweetSnap error:', err);
+    }
+  };
+
+  const handleTakePhotoSweetSnap = async (isReply = false) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission Needed', 'Please allow camera access to take a sweet snap for your partner.');
+        return;
+      }
+
+      const res = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+      });
+
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        await processAndStageAsset(res.assets[0], isReply);
+      }
+    } catch (err) {
+      console.warn('handleTakePhotoSweetSnap error:', err);
     }
   };
 
@@ -724,7 +760,18 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                   : `A sweet photo to make ${partnerName} smile. Disappears after 7 hours!`}
               </Text>
 
-              {stagedSnapUri ? (
+              {isProcessingSnap ? (
+                /* OPTIMIZATION IN PROGRESS */
+                <View style={styles.processingSnapCard}>
+                  <ActivityIndicator size="large" color={AppColors.primary} />
+                  <Text style={styles.processingSnapText}>
+                    Optimizing photo for {partnerName}... 📸✨
+                  </Text>
+                  <Text style={styles.processingSnapSubtitle}>
+                    Compressing high-res image for instant cloud sync
+                  </Text>
+                </View>
+              ) : stagedSnapUri ? (
                 /* STAGING SAVE AREA */
                 <View style={styles.saveAreaCard}>
                   <View style={styles.stagedImageFrame}>
@@ -739,14 +786,24 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                         {isReplySnap ? `Reply to ${snap?.author || partnerName}` : 'Ready to Save & Sync'}
                       </Text>
                     </View>
-                    <TouchableOpacity
-                      style={styles.stagedChangeBtn}
-                      onPress={() => handlePickSweetSnap(isReplySnap)}
-                      activeOpacity={0.8}
-                    >
-                      <Feather name="refresh-cw" size={12} color="#FFFFFF" />
-                      <Text style={styles.stagedChangeBtnText}>Change</Text>
-                    </TouchableOpacity>
+                    <View style={styles.stagedChangeBtnsRow}>
+                      <TouchableOpacity
+                        style={styles.stagedChangeBtn}
+                        onPress={() => handlePickSweetSnap(isReplySnap)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="images-outline" size={11} color="#FFFFFF" />
+                        <Text style={styles.stagedChangeBtnText}>Gallery</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.stagedChangeBtn}
+                        onPress={() => handleTakePhotoSweetSnap(isReplySnap)}
+                        activeOpacity={0.8}
+                      >
+                        <Feather name="camera" size={11} color="#FFFFFF" />
+                        <Text style={styles.stagedChangeBtnText}>Camera</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   {/* Caption Input */}
@@ -917,11 +974,7 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                 </View>
               ) : (
                 /* NO ACTIVE SNAP EMPTY STATE */
-                <TouchableOpacity
-                  style={styles.emptySnapBox}
-                  onPress={() => handlePickSweetSnap(false)}
-                  activeOpacity={0.82}
-                >
+                <View style={styles.emptySnapBox}>
                   <View style={styles.snapCameraCircle}>
                     <Ionicons name="camera" size={26} color={AppColors.primary} />
                   </View>
@@ -929,11 +982,25 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                   <Text style={styles.emptySnapSubtitle}>
                     Upload a cute surprise photo or selfie to brighten {partnerName}'s day!
                   </Text>
-                  <View style={styles.uploadSnapBtn}>
-                    <Ionicons name="add" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
-                    <Text style={styles.uploadSnapBtnText}>Upload Sweet Snap (7h)</Text>
+                  <View style={styles.snapButtonsRow}>
+                    <TouchableOpacity
+                      style={styles.uploadSnapBtn}
+                      onPress={() => handlePickSweetSnap(false)}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="images-outline" size={15} color="#FFFFFF" style={{ marginRight: 5 }} />
+                      <Text style={styles.uploadSnapBtnText}>Upload Photo</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.cameraSnapBtn}
+                      onPress={() => handleTakePhotoSweetSnap(false)}
+                      activeOpacity={0.85}
+                    >
+                      <Feather name="camera" size={14} color={AppColors.primary} style={{ marginRight: 5 }} />
+                      <Text style={styles.cameraSnapBtnText}>Take Selfie</Text>
+                    </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
+                </View>
               )}
             </View>
 
@@ -1698,6 +1765,55 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
+  },
+  snapButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  cameraSnapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 235, 240, 0.95)',
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 182, 193, 0.6)',
+  },
+  cameraSnapBtnText: {
+    color: AppColors.primary,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  processingSnapCard: {
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: '#FFE0E6',
+  },
+  processingSnapText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: AppColors.textPrimary,
+    textAlign: 'center',
+  },
+  processingSnapSubtitle: {
+    fontSize: 11,
+    color: AppColors.textSecondary,
+    textAlign: 'center',
+  },
+  stagedChangeBtnsRow: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    gap: 6,
   },
   editDateBtn: {
     flexDirection: 'row',

@@ -24,6 +24,7 @@ import {
   SharedDoodle,
   ScrapbookPageData,
 } from './StorageService';
+import ImageCompressService from './ImageCompressService';
 
 export interface FirestorePartnerData {
   uid: string;
@@ -624,7 +625,7 @@ export const FirestoreService = {
   },
 
   /**
-   * Sync Ephemeral Snap to Cloud
+   * Sync Ephemeral Snap to Cloud (guarantees safe size under Firestore 1MB limit)
    */
   async syncSnap(inviteCode: string, snap: EphemeralSnap | null): Promise<void> {
     if (!isInitialized || !db || !inviteCode) return;
@@ -632,7 +633,14 @@ export const FirestoreService = {
       const code = inviteCode.trim().toUpperCase();
       const syncRef = doc(db, 'couples', code, 'live', 'sync');
       const coupleRef = doc(db, 'couples', code);
-      await setDoc(syncRef, { snap, updatedAt: Date.now() }, { merge: true });
+
+      let safeSnap = snap;
+      if (snap && snap.imageUri) {
+        const safeUri = await ImageCompressService.ensureSafeCloudSize(snap.imageUri);
+        safeSnap = { ...snap, imageUri: safeUri };
+      }
+
+      await setDoc(syncRef, { snap: safeSnap, updatedAt: Date.now() }, { merge: true });
       await setDoc(coupleRef, { lastSnapUpdated: Date.now() }, { merge: true });
     } catch (err) {
       console.warn('Firestore syncSnap error:', err);

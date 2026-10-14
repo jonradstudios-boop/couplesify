@@ -27,6 +27,7 @@ import StorageService, {
 } from '../services/StorageService';
 import PdfExportService from '../services/PdfExportService';
 import FirestoreService from '../services/FirestoreService';
+import ImageCompressService from '../services/ImageCompressService';
 
 const { width } = Dimensions.get('window');
 const isNative = Platform.OS !== 'web';
@@ -268,9 +269,7 @@ export const SpiralScrapbook: React.FC<SpiralScrapbookProps> = ({
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
         const asset = res.assets[0];
-        const uri = asset.base64
-          ? `data:image/jpeg;base64,${asset.base64}`
-          : asset.uri;
+        const uri = await ImageCompressService.processPickerAsset(asset);
         applyPhotoToSlot(targetPhotoPageIndex, slot, uri);
         setIsPhotoModalOpen(false);
       }
@@ -298,9 +297,7 @@ export const SpiralScrapbook: React.FC<SpiralScrapbookProps> = ({
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
         const asset = res.assets[0];
-        const uri = asset.base64
-          ? `data:image/jpeg;base64,${asset.base64}`
-          : asset.uri;
+        const uri = await ImageCompressService.processPickerAsset(asset);
         applyPhotoToSlot(targetPhotoPageIndex, slot, uri);
         setIsPhotoModalOpen(false);
       }

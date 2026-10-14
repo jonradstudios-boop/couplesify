@@ -28,6 +28,7 @@ import StorageService, {
   CoupleProfile,
 } from '../services/StorageService';
 import FirestoreService from '../services/FirestoreService';
+import ImageCompressService from '../services/ImageCompressService';
 
 const MEMORY_TAGS = ['Date Night', 'Anniversary', 'Road Trip', 'Cozy Home', 'Milestone'];
 
@@ -112,10 +113,7 @@ export const MemoryScreen: React.FC = () => {
         });
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
-          const asset = result.assets[0];
-          const uri = asset.base64
-            ? `data:image/jpeg;base64,${asset.base64}`
-            : asset.uri;
+          const uri = await ImageCompressService.processPickerAsset(result.assets[0]);
           setSelectedPhotoUri(uri);
         }
       }

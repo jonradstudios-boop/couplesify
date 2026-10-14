@@ -1,6 +1,7 @@
 import { doc, setDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { db, isInitialized } from './FirebaseConfig';
 import StorageService, { ChatMessage, SharedDoodle, EphemeralSnap, SweetVoiceNote } from './StorageService';
+import ImageCompressService from './ImageCompressService';
 
 type EventCallback<T = any> = (data: T) => void;
 
@@ -278,14 +279,20 @@ class RealtimeServiceManager {
    */
   public async broadcastSnap(snap: EphemeralSnap | null) {
     if (snap) {
-      const timestamp = snap.timestamp || Date.now();
-      this.lastSnapId = snap.id || `snap-${timestamp}`;
+      let safeSnap = snap;
+      if (snap.imageUri && snap.imageUri.length > 250000) {
+        const compressedUri = await ImageCompressService.ensureSafeCloudSize(snap.imageUri);
+        safeSnap = { ...snap, imageUri: compressedUri };
+      }
+
+      const timestamp = safeSnap.timestamp || Date.now();
+      this.lastSnapId = safeSnap.id || `snap-${timestamp}`;
       this.lastProcessedTimes['snap'] = timestamp;
-      this.emit('snap', snap);
+      this.emit('snap', safeSnap);
 
       await this.writeSync({
         snap: {
-          ...snap,
+          ...safeSnap,
           timestamp,
         },
       });
