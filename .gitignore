@@ -53,3 +53,5 @@ credentials.json
 *.webm
 scratch_*/
 test.*
+*.apk
+*.zip
