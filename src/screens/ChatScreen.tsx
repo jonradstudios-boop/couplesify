@@ -11,6 +11,7 @@ import {
   Platform,
   Image,
   Keyboard,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -110,6 +111,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
 
     // Listen to real-time incoming broadcast messages
     const unsubMsg = RealtimeService.on('message', (msg: ChatMessage) => {
+      if (msg?.id === 'clear_chat' || msg?.text === '__CLEAR_ALL_CHAT__') {
+        setMessages([]);
+        StorageService.saveMessages([]);
+        return;
+      }
       setMessages((prev) => [...prev, msg]);
       scrollViewRef.current?.scrollToEnd({ animated: true });
     });
@@ -200,27 +206,43 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
     }
   };
 
-  const handleSendVoiceNote = async () => {
+  const handleConfirmClearChat = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
-    const voiceMsg: ChatMessage = {
-      id: `voice-${Date.now()}`,
-      sender: 'user',
-      type: 'voice',
-      voiceSeconds: 6,
-      timestamp: Date.now(),
-      status: 'delivered',
-    };
-    const updated = [...messages, voiceMsg];
-    setMessages(updated);
-    await StorageService.saveMessages(updated);
-    await RealtimeService.broadcastMessage(voiceMsg);
-    scrollToBottom();
 
-    const currentUser = await AuthService.getCurrentUser();
-    if (profile?.inviteCode) {
-      FirestoreService.sendChatMessage(profile.inviteCode, voiceMsg, currentUser?.uid);
+    const doClear = async () => {
+      setMessages([]);
+      await StorageService.saveMessages([]);
+      if (profile?.inviteCode) {
+        await FirestoreService.clearChatMessages(profile.inviteCode);
+      }
+      await RealtimeService.broadcastMessage({
+        id: 'clear_chat',
+        text: '__CLEAR_ALL_CHAT__',
+        sender: 'partner' as const,
+        type: 'text' as const,
+        status: 'sent' as const,
+        timestamp: Date.now(),
+      });
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+    };
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm('Clear all chat messages for you and your partner? 💕')) {
+        doClear();
+      }
+    } else {
+      Alert.alert(
+        'Clear Chat History',
+        'Are you sure you want to clear all chat messages for you and your partner? 💕',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Clear All', style: 'destructive', onPress: doClear },
+        ]
+      );
     }
   };
 
@@ -275,6 +297,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
 
           {/* Quick Actions in Header */}
           <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={handleConfirmClearChat}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={17} color="#FF4D67" />
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.headerIconBtn}
               onPress={onOpenDoodle}
@@ -439,14 +469,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
               },
             ]}
           >
-            <TouchableOpacity
-              style={styles.attachBtn}
-              onPress={handleSendVoiceNote}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons name="microphone" size={22} color={AppColors.primary} />
-            </TouchableOpacity>
-
             <TextInput
               style={styles.textInput}
               placeholder={`Send sweet note to ${profile?.partnerName || 'Partner'}...`}

@@ -67,6 +67,9 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mediaRecorderRef = useRef<any>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioPlayerRef = useRef<any>(null);
 
   // Nudge feedback
   const [sentMessage, setSentMessage] = useState<string | null>(null);
@@ -134,6 +137,20 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
       unsubSnap();
       unsubVoice();
       unsubDoodle();
+      if (audioPlayerRef.current) {
+        try {
+          audioPlayerRef.current.pause();
+        } catch {}
+        audioPlayerRef.current = null;
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+          if (mediaRecorderRef.current.stream) {
+            mediaRecorderRef.current.stream.getTracks().forEach((t: any) => t.stop());
+          }
+        } catch {}
+      }
     };
   }, [visible, loadHubData]);
 
@@ -160,6 +177,45 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     return () => clearInterval(interval);
   }, [visible, snap]);
 
+  // Helper to ensure photo is compressed and stored as a lightweight data URL
+  const compressImageForSync = async (uri: string, base64?: string | null): Promise<string> => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof document !== 'undefined') {
+      return new Promise((resolve) => {
+        const img = new (window as any).Image() as HTMLImageElement;
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const maxDim = 600;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.65));
+          } else {
+            resolve(base64 ? `data:image/jpeg;base64,${base64}` : uri);
+          }
+        };
+        img.onerror = () => {
+          resolve(base64 ? `data:image/jpeg;base64,${base64}` : uri);
+        };
+        img.src = base64 ? `data:image/jpeg;base64,${base64}` : uri;
+      });
+    }
+    return base64 ? `data:image/jpeg;base64,${base64}` : uri;
+  };
+
   // 1. Ephemeral Snap Actions (7 hours reset)
   const handlePickSweetSnap = async () => {
     try {
@@ -180,14 +236,12 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
         const asset = res.assets[0];
-        const imageUri = asset.base64
-          ? `data:image/jpeg;base64,${asset.base64}`
-          : asset.uri;
+        const finalImageUri = await compressImageForSync(asset.uri, asset.base64);
 
         const isReply = !!snap;
         const newSnap: EphemeralSnap = {
           id: `snap-${Date.now()}`,
-          imageUri,
+          imageUri: finalImageUri,
           timestamp: Date.now(),
           author: userName || 'You',
           caption: isReply ? `Reply to ${snap?.author || partnerName} 💕` : 'Uploaded with love 💕',
@@ -206,8 +260,8 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
         );
         setTimeout(() => setSentMessage(null), 3000);
       }
-    } catch {
-      // Safe fallback
+    } catch (err) {
+      console.warn('Sweet snap upload warning:', err);
     }
   };
 
@@ -361,11 +415,46 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     setTimeout(() => setSentMessage(null), 3000);
   };
 
-  // 4. Sweet Voice Note Handlers
-  const handleStartRecordVoice = () => {
+  // 4. Sweet Voice Note Handlers with Real Microphone Recording & Playback
+  const handleStartRecordVoice = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
+
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunksRef.current = [];
+
+        let options: any = undefined;
+        if (typeof MediaRecorder !== 'undefined') {
+          if (MediaRecorder.isTypeSupported('audio/webm')) {
+            options = { mimeType: 'audio/webm' };
+          } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            options = { mimeType: 'audio/mp4' };
+          } else if (MediaRecorder.isTypeSupported('audio/aac')) {
+            options = { mimeType: 'audio/aac' };
+          }
+        }
+
+        const recorder = new MediaRecorder(stream, options);
+        recorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+        recorder.start(100);
+        mediaRecorderRef.current = recorder;
+      } catch (micErr) {
+        console.warn('Microphone permission or access error:', micErr);
+        if (Platform.OS === 'web') {
+          alert('Please allow microphone permissions in your browser to record a sweet voice whisper! 🎙️');
+        } else {
+          Alert.alert('Microphone Access', 'Please allow microphone access to record a sweet voice whisper! 🎙️');
+        }
+      }
+    }
+
     setIsRecordingVoice(true);
     setRecordingSeconds(1);
 
@@ -385,11 +474,41 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     } catch {}
     setIsRecordingVoice(false);
 
+    let recordedAudioUri: string | undefined = undefined;
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        const recorder = mediaRecorderRef.current;
+        await new Promise<void>((resolve) => {
+          recorder.onstop = () => resolve();
+          recorder.stop();
+        });
+
+        if (recorder.stream) {
+          recorder.stream.getTracks().forEach((t: any) => t.stop());
+        }
+
+        const mime = recorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mime });
+        if (audioBlob.size > 0) {
+          recordedAudioUri = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(audioBlob);
+          });
+        }
+      } catch (err) {
+        console.warn('Error saving recorded voice note:', err);
+      }
+      mediaRecorderRef.current = null;
+    }
+
     const newNote: SweetVoiceNote = {
       id: `voice-${Date.now()}`,
-      duration: Math.max(3, recordingSeconds),
+      duration: Math.max(2, recordingSeconds),
       timestamp: Date.now(),
       senderName: userName || 'You',
+      audioUri: recordedAudioUri,
     };
 
     setVoiceNote(newNote);
@@ -409,8 +528,35 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     } catch {}
 
     if (isPlayingVoice) {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
       setIsPlayingVoice(false);
     } else {
+      if (voiceNote?.audioUri && Platform.OS === 'web' && typeof Audio !== 'undefined') {
+        try {
+          const audio = new Audio(voiceNote.audioUri);
+          audioPlayerRef.current = audio;
+          audio.onended = () => {
+            setIsPlayingVoice(false);
+            audioPlayerRef.current = null;
+          };
+          audio.onerror = () => {
+            setIsPlayingVoice(false);
+            audioPlayerRef.current = null;
+          };
+          audio.play().catch(() => {
+            setIsPlayingVoice(false);
+            audioPlayerRef.current = null;
+          });
+          setIsPlayingVoice(true);
+          return;
+        } catch {
+          // Fallback to timer
+        }
+      }
+
       setIsPlayingVoice(true);
       const playDuration = (voiceNote?.duration || 5) * 1000;
       setTimeout(() => {
@@ -425,9 +571,16 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     } catch {}
 
     const doDelete = async () => {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
       setVoiceNote(null);
       setIsPlayingVoice(false);
       await StorageService.saveSweetVoiceNote(null);
+      if (profile?.inviteCode) {
+        await FirestoreService.syncVoiceNote(profile.inviteCode, null);
+      }
       setSentMessage('Sweet voice whisper deleted! 🗑️');
       setTimeout(() => setSentMessage(null), 2500);
     };
@@ -686,7 +839,7 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                 <DoodleCanvas
                   initialStrokes={sharedDoodle?.strokes || []}
                   onSave={handleSaveDoodle}
-                  height={280}
+                  height={220}
                   isCompact={true}
                   author={userName || 'You'}
                   onClear={handleClearDoodle}

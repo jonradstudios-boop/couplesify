@@ -11,6 +11,7 @@ import {
   limit,
   onSnapshot,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { db, isInitialized } from './FirebaseConfig';
 import {
@@ -948,6 +949,72 @@ export const FirestoreService = {
       };
     } catch {
       return () => {};
+    }
+  },
+
+  /**
+   * Sync Tic-Tac-Toe state to Cloud
+   */
+  async syncTicTacToe(inviteCode: string, tttState: any): Promise<void> {
+    if (!isInitialized || !db || !inviteCode) return;
+    try {
+      const code = inviteCode.trim().toUpperCase();
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      await setDoc(
+        syncRef,
+        {
+          ttt: { ...tttState, updatedAt: Date.now() },
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('Firestore syncTicTacToe error:', err);
+    }
+  },
+
+  /**
+   * Subscribe to Tic-Tac-Toe live board updates
+   */
+  subscribeToTicTacToe(
+    inviteCode: string,
+    onUpdate: (state: any) => void
+  ): () => void {
+    if (!isInitialized || !db || !inviteCode) return () => {};
+    try {
+      const code = inviteCode.trim().toUpperCase();
+      const syncRef = doc(db, 'couples', code, 'live', 'sync');
+      return onSnapshot(
+        syncRef,
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            onUpdate(data?.ttt || null);
+          }
+        },
+        (err) => console.warn('subscribeToTicTacToe error:', err)
+      );
+    } catch {
+      return () => {};
+    }
+  },
+
+  /**
+   * Clear all chat messages from Firestore
+   */
+  async clearChatMessages(inviteCode: string): Promise<void> {
+    if (!isInitialized || !db || !inviteCode) return;
+    try {
+      const code = inviteCode.trim().toUpperCase();
+      const messagesCol = collection(db, 'couples', code, 'messages');
+      const snap = await getDocs(messagesCol);
+      const batch = writeBatch(db);
+      snap.docs.forEach((d) => {
+        batch.delete(d.ref);
+      });
+      await batch.commit();
+    } catch (err) {
+      console.warn('Firestore clearChatMessages error:', err);
     }
   },
 };
