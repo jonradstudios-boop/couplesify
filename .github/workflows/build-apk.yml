@@ -7,9 +7,12 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Build Android APK
+    name: Build Standalone Android Release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -43,14 +46,38 @@ jobs:
       - name: 🔑 Ensure gradlew is executable
         run: chmod +x android/gradlew
 
-      - name: 🛠️ Build Android Debug APK
+      - name: 🛠️ Build Standalone Release APK (Bundles JS & Assets)
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: 📦 Prepare Named Standalone APK
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk Couplesify.apk
 
       - name: 📤 Upload Android APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: couplesify-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: Couplesify.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: 🏷️ Publish APK to GitHub Releases (Direct Download Link)
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        with:
+          tag_name: v1.0.0
+          name: "Couplesify v1.0.0 Standalone APK"
+          body: |
+            ### 💕 Couplesify Android Standalone APK
+            - **100% Standalone APK** — Pre-bundled JavaScript & assets; no Metro, no computer, no localhost needed!
+            - Real-time cloud sync powered by Firebase (`couplesify-9805b`).
+            - Supports large photos with automatic compression, Sweet Snaps, keepsakes, and games.
+            
+            **Direct Download:** Download `Couplesify.apk` below directly to your Android device.
+          files: Couplesify.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
