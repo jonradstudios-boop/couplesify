@@ -20,7 +20,6 @@ import * as ImagePicker from 'expo-image-picker';
 import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
 import FallingHeartsBackground from '../components/FallingHeartsBackground';
-import LiquidEther from '../components/LiquidEther';
 import AuthService, { UserAccount } from '../services/AuthService';
 import FirestoreService from '../services/FirestoreService';
 
@@ -205,17 +204,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onSkip })
 
   return (
     <LinearGradient colors={['#FCE8EC', '#FFF5F7', '#FFFDFE']} style={styles.gradientContainer}>
-      {/* Liquid Ether Interactive WebGL Fluid Dynamics in Pink & White */}
-      <LiquidEther
-        colors={['#FFFFFF', '#FFF0F5', '#FFD1DC', '#FFA4B0', '#FF8A96', '#FF6575', '#FFFFFF']}
-        mouseForce={24}
-        cursorSize={110}
-        autoDemo={true}
-        autoSpeed={0.5}
-        autoIntensity={2.4}
-        resolution={0.55}
-        BFECC={true}
-      />
       <FallingHeartsBackground />
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
