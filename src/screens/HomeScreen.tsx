@@ -287,7 +287,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           )}
 
           {/* Bottom spacing for floating bar */}
-          <View style={{ height: 100 }} />
+          <View style={{ height: 135 }} />
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>

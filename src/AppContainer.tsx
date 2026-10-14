@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
+import { View, StyleSheet, StatusBar, Keyboard, Platform } from 'react-native';
 import CustomBottomBar, { TabKey } from './components/CustomBottomBar';
 import HomeScreen from './screens/HomeScreen';
 import GamesScreen from './screens/GamesScreen';
@@ -26,6 +26,23 @@ export const AppContainer: React.FC = () => {
   const [isNudgeModalOpen, setIsNudgeModalOpen] = useState(false);
   const [isPairingModalOpen, setIsPairingModalOpen] = useState(false);
   const [profile, setProfile] = useState<CoupleProfile | null>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     let unsubCouple: (() => void) | undefined;
@@ -122,21 +139,24 @@ export const AppContainer: React.FC = () => {
         </View>
       )}
 
-      {/* Persistent Floating Bottom Bar (hidden inside full-screen immersive views like Spicy Games & Doodling) */}
-      {isAuthenticated && !isDoodleFullscreen && !(activeTab === 'games' && isSpicyActive) && (
-        <CustomBottomBar
-          activeTab={activeTab}
-          onTabPress={(tab) => {
-            if (tab === 'center') {
-              setIsNudgeModalOpen(true);
-            } else {
-              setActiveTab(tab);
-            }
-          }}
-          onCenterPress={() => setIsNudgeModalOpen(true)}
-          unreadCount={0}
-        />
-      )}
+      {/* Persistent Floating Bottom Bar (hidden inside full-screen immersive views like Spicy Games & Doodling, or during active typing) */}
+      {isAuthenticated &&
+        !isDoodleFullscreen &&
+        !(activeTab === 'games' && isSpicyActive) &&
+        !isKeyboardVisible && (
+          <CustomBottomBar
+            activeTab={activeTab}
+            onTabPress={(tab) => {
+              if (tab === 'center') {
+                setIsNudgeModalOpen(true);
+              } else {
+                setActiveTab(tab);
+              }
+            }}
+            onCenterPress={() => setIsNudgeModalOpen(true)}
+            unreadCount={0}
+          />
+        )}
 
       {/* Center Love Nudge & Heart Hub Modal */}
       {isAuthenticated && (

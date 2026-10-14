@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -33,12 +34,29 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
   const [profile, setProfile] = useState<CoupleProfile | null>(null);
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const partnerNameRef = useRef('Partner');
 
   useEffect(() => {
     partnerNameRef.current = profile?.partnerName || 'Partner';
   }, [profile?.partnerName]);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     let unsubFirestoreChat = () => {};
@@ -407,11 +425,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
               </View>
             )}
 
-            <View style={{ height: 90 }} />
+            <View style={{ height: 24 }} />
           </ScrollView>
 
-          {/* Bottom Chat Input Bar */}
-          <View style={styles.inputBar}>
+          {/* Bottom Chat Input Bar (positioned comfortably above floating navigation bar) */}
+          <View
+            style={[
+              styles.inputBar,
+              {
+                marginBottom: isKeyboardVisible
+                  ? (Platform.OS === 'ios' ? 8 : 6)
+                  : (Platform.OS === 'ios' ? 128 : 118),
+              },
+            ]}
+          >
             <TouchableOpacity
               style={styles.attachBtn}
               onPress={handleSendVoiceNote}
@@ -680,13 +707,19 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.72)',
-    borderTopWidth: 1.2,
-    borderTopColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderRadius: 28,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.96)',
     gap: 8,
-    marginBottom: Platform.OS === 'ios' ? 70 : 60,
+    shadowColor: '#E297A5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 4,
   },
   attachBtn: {
     width: 40,

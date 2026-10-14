@@ -478,7 +478,7 @@ export const MemoryScreen: React.FC = () => {
             </View>
           )}
 
-          <View style={{ height: 110 }} />
+          <View style={{ height: 140 }} />
         </ScrollView>
 
         {/* Modal: Upload New Memory */}
