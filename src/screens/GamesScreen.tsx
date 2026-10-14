@@ -12,7 +12,6 @@ import {
   Platform,
   TextInput,
   Image,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +22,6 @@ import GameTile from '../components/GameTile';
 import GoalCard from '../components/GoalCard';
 import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import StorageService, { CoupleGoal } from '../services/StorageService';
-import AuthService from '../services/AuthService';
 import SpicyChiliTransition from '../components/SpicyChiliTransition';
 import SpicyGamesLounge from '../components/SpicyGamesLounge';
 import GameSyncService, { DuoRoomState, InGameInvite } from '../services/GameSyncService';
@@ -86,7 +84,6 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
   const [tttBoard, setTttBoard] = useState<(string | null)[]>(Array(9).fill(null));
   const [tttTurn, setTttTurn] = useState<'X' | 'O'>('X');
   const [tttWinner, setTttWinner] = useState<string | null>(null);
-  const [userGender, setUserGender] = useState<'male' | 'female'>('male');
 
   // Daily Quiz State
   const [quizIndex, setQuizIndex] = useState(0);
@@ -129,8 +126,6 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
     const prof = await StorageService.getProfile();
     if (prof?.partnerName) setPartnerName(prof.partnerName);
     if (prof?.userName) setUserName(prof.userName);
-    const account = await AuthService.getCurrentUser();
-    if (account?.gender) setUserGender(account.gender);
     const data = await StorageService.getGoals();
     setGoals(data);
 
@@ -493,10 +488,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
         // 2. Subscribe to Host Active Game Session (Auto-starts game for partner!)
         unsubGame = FirestoreService.subscribeToActiveGame(prof.inviteCode, (gameSession) => {
           if (gameSession && gameSession.gameModalId) {
-            if (gameSession.spicyGame) {
-              setViewMode('spicy_games');
-              onSpicyModeChange?.(true);
-            } else if (gameSession.hostName !== userName) {
+            if (gameSession.hostName !== userName) {
               setActiveGameModal(gameSession.gameModalId);
             }
           } else if (gameSession === null) {
@@ -525,18 +517,12 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
           }
         });
 
-        // 4. Subscribe to Live Tic-Tac-Toe Duo Board
+        // 4. Subscribe to Live Tic Tac Toe Moves & Turns
         unsubTtt = FirestoreService.subscribeToTicTacToe(prof.inviteCode, (tttState) => {
           if (tttState) {
-            if (Array.isArray(tttState.board)) {
-              setTttBoard(tttState.board);
-            }
-            if (tttState.turn) {
-              setTttTurn(tttState.turn);
-            }
-            if (tttState.winner !== undefined) {
-              setTttWinner(tttState.winner);
-            }
+            if (tttState.board) setTttBoard(tttState.board);
+            if (tttState.turn) setTttTurn(tttState.turn);
+            if (tttState.winner !== undefined) setTttWinner(tttState.winner);
           }
         });
       }
@@ -546,24 +532,6 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
     const unsubRealtimeGame = RealtimeService.on('game', (data) => {
       if (data?.gameId === 'start_game' && data.gameModalId && data.hostName !== userName) {
         setActiveGameModal(data.gameModalId);
-      }
-      if (data?.gameId === 'spicy_host_start_game') {
-        setViewMode('spicy_games');
-        onSpicyModeChange?.(true);
-      }
-      if (data?.gameId === 'spicy_host_close_game') {
-        setViewMode('hub');
-        onSpicyModeChange?.(false);
-      }
-      if (data?.gameId === 'ttt_move') {
-        if (Array.isArray(data.board)) setTttBoard(data.board);
-        if (data.turn) setTttTurn(data.turn);
-        if (data.winner !== undefined) setTttWinner(data.winner);
-      }
-      if (data?.gameId === 'ttt_reset') {
-        setTttBoard(Array(9).fill(null));
-        setTttTurn('X');
-        setTttWinner(null);
       }
       if (data?.gameId === 'tod_answer' && data.promptKey && data.answer) {
         setSavedAnswers((prev) => ({ ...prev, [data.promptKey]: data.answer }));
@@ -583,6 +551,11 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
       }
       if (data?.gameId === 'turn' && data.todTurn) {
         setTodTurn(data.todTurn);
+      }
+      if (data?.gameId === 'ttt_move' || data?.gameId === 'ttt_reset') {
+        if (data.board) setTttBoard(data.board);
+        if (data.turn) setTttTurn(data.turn);
+        if (data.winner !== undefined) setTttWinner(data.winner);
       }
       if (data?.gameId === 'invite' && data.invite && data.invite.fromName !== userName) {
         setPendingInvitePopup(data.invite);
@@ -686,21 +659,8 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
     return null;
   };
 
-  const myTttSymbol = userGender === 'female' ? 'O' : 'X';
-  const isMyTttTurn = tttTurn === myTttSymbol;
-
   const handleTttCellPress = async (index: number) => {
     if (tttBoard[index] || tttWinner) return;
-
-    // Enforce alternate turns in connected Duo mode
-    if (isPartnerConnected && !isMyTttTurn) {
-      try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      } catch {}
-      Alert.alert('Waiting for Partner', `It is ${partnerName}'s turn to place their symbol! 💕`);
-      return;
-    }
-
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
@@ -708,57 +668,52 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
     const next = [...tttBoard];
     next[index] = tttTurn;
     const winner = checkTttWinner(next);
-    setTttBoard(next);
+    const nextTurn = winner ? tttTurn : (tttTurn === 'X' ? 'O' : 'X');
 
-    const nextTurn = tttTurn === 'X' ? 'O' : 'X';
+    setTttBoard(next);
+    setTttTurn(nextTurn);
+
     if (winner) {
       setTttWinner(winner);
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {}
-    } else {
-      setTttTurn(nextTurn);
     }
 
     const prof = await StorageService.getProfile();
     if (prof?.inviteCode) {
-      FirestoreService.syncTicTacToe(prof.inviteCode, {
+      const statePayload = {
         board: next,
-        turn: winner ? tttTurn : nextTurn,
+        turn: nextTurn,
         winner,
-        lastPlayedBy: userName,
-      });
-      RealtimeService.broadcastGameMove('ttt_move', {
-        board: next,
-        turn: winner ? tttTurn : nextTurn,
-        winner,
-        lastPlayedBy: userName,
-      });
+        lastMoveBy: userName,
+        updatedAt: Date.now(),
+      };
+      await FirestoreService.syncTicTacToe(prof.inviteCode, statePayload);
+      await RealtimeService.broadcastGameMove('ttt_move', statePayload);
     }
   };
 
   const resetTtt = async () => {
-    const blank = Array(9).fill(null);
-    setTttBoard(blank);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+    const emptyBoard = Array(9).fill(null);
+    setTttBoard(emptyBoard);
     setTttTurn('X');
     setTttWinner(null);
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {}
 
     const prof = await StorageService.getProfile();
     if (prof?.inviteCode) {
-      FirestoreService.syncTicTacToe(prof.inviteCode, {
-        board: blank,
+      const resetPayload = {
+        board: emptyBoard,
         turn: 'X',
         winner: null,
-        lastPlayedBy: userName,
-      });
-      RealtimeService.broadcastGameMove('ttt_reset', {
-        board: blank,
-        turn: 'X',
-        winner: null,
-      });
+        resetBy: userName,
+        updatedAt: Date.now(),
+      };
+      await FirestoreService.syncTicTacToe(prof.inviteCode, resetPayload);
+      await RealtimeService.broadcastGameMove('ttt_reset', resetPayload);
     }
   };
 
@@ -1395,9 +1350,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
                           { color: tttTurn === 'X' ? '#FF2D55' : '#4361EE' },
                         ]}
                       >
-                        {tttTurn === myTttSymbol
-                          ? `Your Turn ( ${myTttSymbol === 'X' ? '✕' : '◯'} )`
-                          : `${partnerName}'s Turn ( ${myTttSymbol === 'X' ? '◯' : '✕'} )`}
+                        {tttTurn === 'X' ? `${userName}'s Turn ( ✕ )` : `${partnerName}'s Turn ( ◯ )`}
                       </Text>
                     </View>
                   </View>
@@ -1521,7 +1474,8 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
                 </TouchableOpacity>
               </View>
 
-              {/* Duo Turn Shuffler Bar */}
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
+                {/* Duo Turn Shuffler Bar */}
               <View style={styles.duoTurnBar}>
                 <View style={styles.duoTurnLeft}>
                   <Text style={styles.duoTurnLabel}>TURN:</Text>
@@ -1695,6 +1649,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
                   <Ionicons name="shuffle" size={18} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -2468,16 +2423,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(45, 36, 43, 0.45)',
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 12,
+    padding: 14,
   },
   gameModalCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.96)',
     borderRadius: 24,
     padding: 16,
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: '88%',
+    maxHeight: '92%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.16,
@@ -2709,12 +2661,13 @@ const styles = StyleSheet.create({
   wheelTierRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 16,
+    marginBottom: 10,
+    gap: 6,
   },
   tierBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 14,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     backgroundColor: 'rgba(255, 247, 248, 0.65)',
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.92)',
@@ -2724,7 +2677,7 @@ const styles = StyleSheet.create({
     borderColor: AppColors.primary,
   },
   tierBtnText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
     color: AppColors.textPrimary,
   },
@@ -2790,10 +2743,10 @@ const styles = StyleSheet.create({
   },
   spinBtn: {
     backgroundColor: AppColors.primary,
-    borderRadius: 14,
-    paddingVertical: 13,
+    borderRadius: 12,
+    paddingVertical: 11,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 8,
   },
   spinBtnDisabled: {
     opacity: 0.6,
@@ -2801,7 +2754,7 @@ const styles = StyleSheet.create({
   spinBtnText: {
     color: '#FFFFFF',
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 13.5,
   },
   wheelResultBox: {
     backgroundColor: 'rgba(255, 245, 246, 0.78)',
@@ -2828,15 +2781,15 @@ const styles = StyleSheet.create({
   },
   flipCard: {
     width: '100%',
-    height: 180,
+    minHeight: 140,
     backgroundColor: 'rgba(255, 247, 248, 0.65)',
-    borderRadius: 22,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: 16,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.92)',
-    marginVertical: 12,
+    marginVertical: 8,
   },
   flipCardFlipped: {
     backgroundColor: 'rgba(255, 232, 236, 0.85)',
@@ -2846,8 +2799,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardDeckEmoji: {
-    fontSize: 48,
-    marginBottom: 8,
+    fontSize: 38,
+    marginBottom: 4,
   },
   tapToRevealText: {
     fontSize: 13,

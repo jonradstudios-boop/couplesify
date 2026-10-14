@@ -84,14 +84,15 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     const doodle = await StorageService.getSharedDoodle();
     setSharedDoodle(doodle);
 
-    if (profile?.anniversaryDate) {
-      setAnniversaryInput(profile.anniversaryDate);
+    const effectiveProfile = profile || (await StorageService.getProfile());
+    if (effectiveProfile?.anniversaryDate) {
+      setAnniversaryInput(effectiveProfile.anniversaryDate);
     }
 
     // Also fetch fresh live cloud sync state from Firestore if available
-    if (profile?.inviteCode) {
+    if (effectiveProfile?.inviteCode) {
       try {
-        const liveDoc = await FirestoreService.getLiveSyncDoc(profile.inviteCode);
+        const liveDoc = await FirestoreService.getLiveSyncDoc(effectiveProfile.inviteCode);
         if (liveDoc) {
           if (liveDoc.snap !== undefined) {
             setSnap(liveDoc.snap);
@@ -141,14 +142,10 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
         try {
           audioPlayerRef.current.pause();
         } catch {}
-        audioPlayerRef.current = null;
       }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         try {
           mediaRecorderRef.current.stop();
-          if (mediaRecorderRef.current.stream) {
-            mediaRecorderRef.current.stream.getTracks().forEach((t: any) => t.stop());
-          }
         } catch {}
       }
     };
@@ -177,45 +174,6 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     return () => clearInterval(interval);
   }, [visible, snap]);
 
-  // Helper to ensure photo is compressed and stored as a lightweight data URL
-  const compressImageForSync = async (uri: string, base64?: string | null): Promise<string> => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof document !== 'undefined') {
-      return new Promise((resolve) => {
-        const img = new (window as any).Image() as HTMLImageElement;
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          const maxDim = 600;
-          let w = img.width;
-          let h = img.height;
-          if (w > maxDim || h > maxDim) {
-            if (w > h) {
-              h = Math.round((h * maxDim) / w);
-              w = maxDim;
-            } else {
-              w = Math.round((w * maxDim) / h);
-              h = maxDim;
-            }
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, w, h);
-            resolve(canvas.toDataURL('image/jpeg', 0.65));
-          } else {
-            resolve(base64 ? `data:image/jpeg;base64,${base64}` : uri);
-          }
-        };
-        img.onerror = () => {
-          resolve(base64 ? `data:image/jpeg;base64,${base64}` : uri);
-        };
-        img.src = base64 ? `data:image/jpeg;base64,${base64}` : uri;
-      });
-    }
-    return base64 ? `data:image/jpeg;base64,${base64}` : uri;
-  };
-
   // 1. Ephemeral Snap Actions (7 hours reset)
   const handlePickSweetSnap = async () => {
     try {
@@ -236,12 +194,30 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
         const asset = res.assets[0];
-        const finalImageUri = await compressImageForSync(asset.uri, asset.base64);
+        let imageUri = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+
+        // Ensure cross-device web compatibility: convert blob to base64 data URL
+        if (Platform.OS === 'web' && (!asset.base64 || imageUri.startsWith('blob:'))) {
+          try {
+            const resp = await fetch(asset.uri);
+            const blob = await resp.blob();
+            const reader = new FileReader();
+            imageUri = await new Promise<string>((resolve) => {
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = () => resolve(asset.uri);
+              reader.readAsDataURL(blob);
+            });
+          } catch (e) {
+            console.warn('Web blob to base64 fallback:', e);
+          }
+        }
 
         const isReply = !!snap;
         const newSnap: EphemeralSnap = {
           id: `snap-${Date.now()}`,
-          imageUri: finalImageUri,
+          imageUri,
           timestamp: Date.now(),
           author: userName || 'You',
           caption: isReply ? `Reply to ${snap?.author || partnerName} 💕` : 'Uploaded with love 💕',
@@ -249,8 +225,9 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
         setSnap(newSnap);
         await StorageService.saveEphemeralSnap(newSnap);
         await RealtimeService.broadcastSnap(newSnap);
-        if (profile?.inviteCode) {
-          await FirestoreService.syncSnap(profile.inviteCode, newSnap);
+        const effectiveProfile = profile || (await StorageService.getProfile());
+        if (effectiveProfile?.inviteCode) {
+          await FirestoreService.syncSnap(effectiveProfile.inviteCode, newSnap);
         }
 
         setSentMessage(
@@ -260,8 +237,8 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
         );
         setTimeout(() => setSentMessage(null), 3000);
       }
-    } catch (err) {
-      console.warn('Sweet snap upload warning:', err);
+    } catch {
+      // Safe fallback
     }
   };
 
@@ -274,9 +251,11 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
       setSnap(null);
       setSnapRemainingTime(null);
       await StorageService.saveEphemeralSnap(null);
-      if (profile?.inviteCode) {
-        await FirestoreService.syncSnap(profile.inviteCode, null);
+      const effectiveProfile = profile || (await StorageService.getProfile());
+      if (effectiveProfile?.inviteCode) {
+        await FirestoreService.syncSnap(effectiveProfile.inviteCode, null);
       }
+      RealtimeService.emit('snap', null);
     };
 
     if (Platform.OS === 'web') {
@@ -415,46 +394,11 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     setTimeout(() => setSentMessage(null), 3000);
   };
 
-  // 4. Sweet Voice Note Handlers with Real Microphone Recording & Playback
+  // 4. Sweet Voice Note Handlers (Real Audio via MediaRecorder & HTML5 Audio)
   const handleStartRecordVoice = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
-
-    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioChunksRef.current = [];
-
-        let options: any = undefined;
-        if (typeof MediaRecorder !== 'undefined') {
-          if (MediaRecorder.isTypeSupported('audio/webm')) {
-            options = { mimeType: 'audio/webm' };
-          } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-            options = { mimeType: 'audio/mp4' };
-          } else if (MediaRecorder.isTypeSupported('audio/aac')) {
-            options = { mimeType: 'audio/aac' };
-          }
-        }
-
-        const recorder = new MediaRecorder(stream, options);
-        recorder.ondataavailable = (event) => {
-          if (event.data && event.data.size > 0) {
-            audioChunksRef.current.push(event.data);
-          }
-        };
-        recorder.start(100);
-        mediaRecorderRef.current = recorder;
-      } catch (micErr) {
-        console.warn('Microphone permission or access error:', micErr);
-        if (Platform.OS === 'web') {
-          alert('Please allow microphone permissions in your browser to record a sweet voice whisper! 🎙️');
-        } else {
-          Alert.alert('Microphone Access', 'Please allow microphone access to record a sweet voice whisper! 🎙️');
-        }
-      }
-    }
-
     setIsRecordingVoice(true);
     setRecordingSeconds(1);
 
@@ -462,6 +406,27 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     recordingTimerRef.current = setInterval(() => {
       setRecordingSeconds((prev) => prev + 1);
     }, 1000);
+
+    // Request actual microphone input and record
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunksRef.current = [];
+        const mimeType = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : '';
+        const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        recorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+        recorder.start(250);
+        mediaRecorderRef.current = recorder;
+      } catch (err) {
+        console.warn('Microphone permission or recording notice:', err);
+      }
+    }
   };
 
   const handleStopRecordVoice = async () => {
@@ -473,53 +438,55 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {}
     setIsRecordingVoice(false);
+    const finalSeconds = Math.max(1, recordingSeconds);
 
-    let recordedAudioUri: string | undefined = undefined;
+    const saveVoiceNoteWithData = async (audioDataUri?: string) => {
+      const newNote: SweetVoiceNote = {
+        id: `voice-${Date.now()}`,
+        duration: finalSeconds,
+        timestamp: Date.now(),
+        senderName: userName || 'You',
+        audioUri: audioDataUri,
+      };
 
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      try {
-        const recorder = mediaRecorderRef.current;
-        await new Promise<void>((resolve) => {
-          recorder.onstop = () => resolve();
-          recorder.stop();
-        });
-
-        if (recorder.stream) {
-          recorder.stream.getTracks().forEach((t: any) => t.stop());
-        }
-
-        const mime = recorder.mimeType || 'audio/webm';
-        const audioBlob = new Blob(audioChunksRef.current, { type: mime });
-        if (audioBlob.size > 0) {
-          recordedAudioUri = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(audioBlob);
-          });
-        }
-      } catch (err) {
-        console.warn('Error saving recorded voice note:', err);
+      setVoiceNote(newNote);
+      await StorageService.saveSweetVoiceNote(newNote);
+      await RealtimeService.broadcastVoice(newNote);
+      const effectiveProfile = profile || (await StorageService.getProfile());
+      if (effectiveProfile?.inviteCode) {
+        await FirestoreService.syncVoiceNote(effectiveProfile.inviteCode, newNote);
       }
-      mediaRecorderRef.current = null;
-    }
-
-    const newNote: SweetVoiceNote = {
-      id: `voice-${Date.now()}`,
-      duration: Math.max(2, recordingSeconds),
-      timestamp: Date.now(),
-      senderName: userName || 'You',
-      audioUri: recordedAudioUri,
+      setRecordingSeconds(0);
+      setSentMessage(`Sweet voice whisper saved for ${partnerName}! 🎙️`);
+      setTimeout(() => setSentMessage(null), 3000);
     };
 
-    setVoiceNote(newNote);
-    await StorageService.saveSweetVoiceNote(newNote);
-    await RealtimeService.broadcastVoice(newNote);
-    if (profile?.inviteCode) {
-      await FirestoreService.syncVoiceNote(profile.inviteCode, newNote);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.onstop = async () => {
+        try {
+          const blobType = audioChunksRef.current[0]?.type || 'audio/webm';
+          const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            const base64Audio = reader.result as string;
+            await saveVoiceNoteWithData(base64Audio);
+          };
+          reader.readAsDataURL(audioBlob);
+        } catch {
+          await saveVoiceNoteWithData();
+        }
+        try {
+          mediaRecorderRef.current.stream?.getTracks().forEach((track: any) => track.stop());
+        } catch {}
+      };
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {
+        await saveVoiceNoteWithData();
+      }
+    } else {
+      await saveVoiceNoteWithData();
     }
-    setRecordingSeconds(0);
-    setSentMessage(`Sweet voice whisper saved for ${partnerName}! 🎙️`);
-    setTimeout(() => setSentMessage(null), 3000);
   };
 
   const handleTogglePlayVoice = () => {
@@ -529,39 +496,32 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
 
     if (isPlayingVoice) {
       if (audioPlayerRef.current) {
-        audioPlayerRef.current.pause();
-        audioPlayerRef.current = null;
+        try {
+          audioPlayerRef.current.pause();
+          audioPlayerRef.current.currentTime = 0;
+        } catch {}
       }
       setIsPlayingVoice(false);
     } else {
-      if (voiceNote?.audioUri && Platform.OS === 'web' && typeof Audio !== 'undefined') {
+      if (voiceNote?.audioUri && typeof Audio !== 'undefined') {
         try {
+          if (audioPlayerRef.current) {
+            audioPlayerRef.current.pause();
+          }
           const audio = new Audio(voiceNote.audioUri);
           audioPlayerRef.current = audio;
-          audio.onended = () => {
-            setIsPlayingVoice(false);
-            audioPlayerRef.current = null;
-          };
-          audio.onerror = () => {
-            setIsPlayingVoice(false);
-            audioPlayerRef.current = null;
-          };
-          audio.play().catch(() => {
-            setIsPlayingVoice(false);
-            audioPlayerRef.current = null;
-          });
           setIsPlayingVoice(true);
-          return;
+          audio.onended = () => setIsPlayingVoice(false);
+          audio.onerror = () => setIsPlayingVoice(false);
+          audio.play().catch(() => setIsPlayingVoice(false));
         } catch {
-          // Fallback to timer
+          setIsPlayingVoice(true);
+          setTimeout(() => setIsPlayingVoice(false), (voiceNote.duration || 5) * 1000);
         }
+      } else {
+        setIsPlayingVoice(true);
+        setTimeout(() => setIsPlayingVoice(false), (voiceNote?.duration || 5) * 1000);
       }
-
-      setIsPlayingVoice(true);
-      const playDuration = (voiceNote?.duration || 5) * 1000;
-      setTimeout(() => {
-        setIsPlayingVoice(false);
-      }, playDuration);
     }
   };
 
@@ -572,15 +532,18 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
 
     const doDelete = async () => {
       if (audioPlayerRef.current) {
-        audioPlayerRef.current.pause();
-        audioPlayerRef.current = null;
+        try {
+          audioPlayerRef.current.pause();
+        } catch {}
       }
       setVoiceNote(null);
       setIsPlayingVoice(false);
       await StorageService.saveSweetVoiceNote(null);
-      if (profile?.inviteCode) {
-        await FirestoreService.syncVoiceNote(profile.inviteCode, null);
+      const effectiveProfile = profile || (await StorageService.getProfile());
+      if (effectiveProfile?.inviteCode) {
+        await FirestoreService.syncVoiceNote(effectiveProfile.inviteCode, null);
       }
+      RealtimeService.emit('voice', null);
       setSentMessage('Sweet voice whisper deleted! 🗑️');
       setTimeout(() => setSentMessage(null), 2500);
     };
@@ -839,7 +802,7 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                 <DoodleCanvas
                   initialStrokes={sharedDoodle?.strokes || []}
                   onSave={handleSaveDoodle}
-                  height={220}
+                  height={280}
                   isCompact={true}
                   author={userName || 'You'}
                   onClear={handleClearDoodle}

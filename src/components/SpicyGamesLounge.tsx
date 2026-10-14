@@ -93,7 +93,8 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
   useEffect(() => {
     let unsubInvite: (() => void) | undefined;
     let unsubTod: (() => void) | undefined;
-    let unsubActiveGame: (() => void) | undefined;
+    let unsubGame: (() => void) | undefined;
+    let unsubSpicy: (() => void) | undefined;
 
     const loadDuoData = async () => {
       const room = await GameSyncService.getDuoRoomState();
@@ -117,6 +118,18 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
           }
         });
 
+        // 1. Subscribe to Host Active Game Session (Auto-starts spicy game for partner!)
+        unsubGame = FirestoreService.subscribeToActiveGame(prof.inviteCode, (gameSession) => {
+          if (gameSession && gameSession.gameModalId) {
+            if (gameSession.hostName !== userName) {
+              setActiveGame(gameSession.gameModalId);
+            }
+          } else if (gameSession === null) {
+            setActiveGame(null);
+          }
+        });
+
+        // 2. Subscribe to Truth or Dare real-time updates
         unsubTod = FirestoreService.subscribeToTruthOrDare(prof.inviteCode, (todState) => {
           if (todState) {
             const key = todState.promptKey || todState.promptId;
@@ -138,12 +151,25 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
           }
         });
 
-        // Subscribe to Host Active Game in Spicy Lounge (Auto-starts game for partner!)
-        unsubActiveGame = FirestoreService.subscribeToActiveGame(prof.inviteCode, (gameSession) => {
-          if (gameSession && gameSession.spicyGame) {
-            setActiveGame(gameSession.spicyGame);
-          } else if (gameSession === null) {
-            setActiveGame(null);
+        // 3. Subscribe to Spicy Game state (NHIE & Trivia)
+        unsubSpicy = FirestoreService.subscribeToSpicyGame(prof.inviteCode, (state) => {
+          if (state) {
+            if (state.nhieVote && state.nhieVote.from !== userName) {
+              setNhiePartnerVote(state.nhieVote.vote);
+            }
+            if (typeof state.nhieIndex === 'number') {
+              setNhieIndex(state.nhieIndex);
+              setNhieUserVote(null);
+              setNhiePartnerVote(null);
+            }
+            if (state.triviaAnswer && state.triviaAnswer.from !== userName) {
+              setRevealedTrivia(true);
+            }
+            if (typeof state.triviaIndex === 'number') {
+              setTriviaIndex(state.triviaIndex);
+              setTriviaUserChoice(null);
+              setRevealedTrivia(false);
+            }
           }
         });
       }
@@ -151,19 +177,13 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
     loadDuoData();
 
     const unsubRealtime = RealtimeService.on('game', (data) => {
-      if (data?.gameId === 'spicy_host_start_game' && data.spicyGame) {
-        setActiveGame(data.spicyGame);
-      }
-      if (data?.gameId === 'spicy_host_close_game') {
-        setActiveGame(null);
-      }
-      if (data?.gameId === 'spicy_nhie_vote' && data.vote && data.userName !== userName) {
-        setNhiePartnerVote(data.vote);
-      }
-      if (data?.gameId === 'spicy_nhie_next' && typeof data.nextIndex === 'number') {
-        setNhieIndex(data.nextIndex);
-        setNhieUserVote(null);
-        setNhiePartnerVote(null);
+      // Auto-start game for partner when host begins
+      if (data?.gameId === 'start_game') {
+        if (data.gameModalId && data.hostName !== userName) {
+          setActiveGame(data.gameModalId);
+        } else if (data.gameModalId === null) {
+          setActiveGame(null);
+        }
       }
       if (data?.gameId === 'tod_answer') {
         const key = data.promptKey || data.promptId;
@@ -187,6 +207,22 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
       if (data?.gameId === 'turn' && data.todTurn) {
         setTodTurn(data.todTurn);
       }
+      if (data?.gameId === 'nhie_vote' && data.from !== userName) {
+        setNhiePartnerVote(data.vote);
+      }
+      if (data?.gameId === 'nhie_next' && typeof data.index === 'number') {
+        setNhieIndex(data.index);
+        setNhieUserVote(null);
+        setNhiePartnerVote(null);
+      }
+      if (data?.gameId === 'trivia_answer' && data.from !== userName) {
+        setRevealedTrivia(true);
+      }
+      if (data?.gameId === 'trivia_next' && typeof data.index === 'number') {
+        setTriviaIndex(data.index);
+        setTriviaUserChoice(null);
+        setRevealedTrivia(false);
+      }
       if (data?.gameId === 'invite' && data.invite && data.invite.fromName !== userName) {
         setPendingInvitePopup(data.invite);
         setIsPartnerConnected(true);
@@ -195,33 +231,12 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
 
     return () => {
       if (unsubInvite) unsubInvite();
+      if (unsubGame) unsubGame();
       if (unsubTod) unsubTod();
-      if (unsubActiveGame) unsubActiveGame();
+      if (unsubSpicy) unsubSpicy();
       unsubRealtime();
     };
   }, [userName, partnerName]);
-
-  const handleStartSpicyGame = async (gameId: string | null) => {
-    setActiveGame(gameId);
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch {}
-
-    const prof = await StorageService.getProfile();
-    if (prof?.inviteCode) {
-      await FirestoreService.syncActiveGame(prof.inviteCode, gameId ? {
-        gameModalId: `spicy_${gameId}`,
-        spicyGame: gameId,
-        hostName: userName,
-        startedAt: Date.now(),
-      } : null);
-
-      RealtimeService.broadcastGameMove(
-        gameId ? 'spicy_host_start_game' : 'spicy_host_close_game',
-        { spicyGame: gameId, hostName: userName },
-      );
-    }
-  };
 
   const handleTogglePartnerConnect = async () => {
     const next = !isPartnerConnected;
@@ -545,6 +560,110 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
     }
   };
 
+  const handleOpenSpicyGame = async (gameId: string) => {
+    setActiveGame(gameId);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      await FirestoreService.syncActiveGame(prof.inviteCode, {
+        gameModalId: gameId,
+        hostName: userName,
+        isSpicy: true,
+        startedAt: Date.now(),
+      });
+      await RealtimeService.broadcastGameMove('start_game', {
+        gameModalId: gameId,
+        hostName: userName,
+        isSpicy: true,
+      });
+    }
+  };
+
+  const handleCloseSpicyGame = async () => {
+    setActiveGame(null);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      await FirestoreService.syncActiveGame(prof.inviteCode, null);
+      await RealtimeService.broadcastGameMove('start_game', {
+        gameModalId: null,
+        hostName: userName,
+        isSpicy: true,
+      });
+    }
+  };
+
+  const handleVoteNhie = async (vote: 'have' | 'never') => {
+    setNhieUserVote(vote);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      const payload = { vote, from: userName, nhieIndex };
+      await FirestoreService.syncSpicyGame(prof.inviteCode, { nhieVote: payload });
+      await RealtimeService.broadcastGameMove('nhie_vote', payload);
+    }
+  };
+
+  const handleNextNhiePrompt = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+    const next = nhieIndex + 1;
+    setNhieIndex(next);
+    setNhieUserVote(null);
+    setNhiePartnerVote(null);
+    setShowAnswerInput(false);
+
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      await FirestoreService.syncSpicyGame(prof.inviteCode, { nhieIndex: next, nhieVote: null });
+      await RealtimeService.broadcastGameMove('nhie_next', { index: next });
+    }
+  };
+
+  const handleChooseTrivia = async (choice: number) => {
+    setTriviaUserChoice(choice);
+    setRevealedTrivia(true);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      await FirestoreService.syncSpicyGame(prof.inviteCode, {
+        triviaAnswer: { choice, from: userName, triviaIndex },
+      });
+      await RealtimeService.broadcastGameMove('trivia_answer', {
+        choice,
+        from: userName,
+      });
+    }
+  };
+
+  const handleNextTriviaQuestion = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+    const next = (triviaIndex + 1) % HOT_TRIVIA_QUESTIONS.length;
+    setTriviaIndex(next);
+    setTriviaUserChoice(null);
+    setRevealedTrivia(false);
+
+    const prof = await StorageService.getProfile();
+    if (prof?.inviteCode) {
+      await FirestoreService.syncSpicyGame(prof.inviteCode, {
+        triviaIndex: next,
+        triviaAnswer: null,
+      });
+      await RealtimeService.broadcastGameMove('trivia_next', { index: next });
+    }
+  };
+
   const ALL_SPICY_TRUTHS = [...customTruths, ...SPICY_TRUTHS];
   const ALL_SPICY_DARES = [...customDares, ...SPICY_DARES];
   const ALL_SPICY_NHIE = [...customNhie, ...SPICY_NHIE_PROMPTS];
@@ -620,7 +739,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
             {/* 1. TRUTH OR DARE ? */}
             <TouchableOpacity
               style={[styles.gameCard, styles.premiumCard]}
-              onPress={() => handleStartSpicyGame('truth_or_dare')}
+              onPress={() => handleOpenSpicyGame('truth_or_dare')}
               activeOpacity={0.85}
             >
               <View style={styles.cardIconCircle}>
@@ -633,7 +752,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
             {/* 2. DIRTY NEVER HAVE I EVER */}
             <TouchableOpacity
               style={styles.gameCard}
-              onPress={() => handleStartSpicyGame('dirty_nhie')}
+              onPress={() => handleOpenSpicyGame('dirty_nhie')}
               activeOpacity={0.85}
             >
               <View style={styles.cardIconCircle}>
@@ -648,7 +767,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
               style={styles.gameCard}
               onPress={() => {
                 setTodTab('dare');
-                handleStartSpicyGame('truth_or_dare');
+                handleOpenSpicyGame('truth_or_dare');
               }}
               activeOpacity={0.85}
             >
@@ -662,7 +781,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
             {/* 4. HOT TRIVIA */}
             <TouchableOpacity
               style={styles.gameCard}
-              onPress={() => handleStartSpicyGame('hot_trivia')}
+              onPress={() => handleOpenSpicyGame('hot_trivia')}
               activeOpacity={0.85}
             >
               <View style={styles.cardIconCircle}>
@@ -685,7 +804,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
             <View style={styles.modalTopHeader}>
               <TouchableOpacity
                 style={styles.modalBackBtn}
-                onPress={() => handleStartSpicyGame(null)}
+                onPress={handleCloseSpicyGame}
                 activeOpacity={0.8}
               >
                 <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
@@ -875,7 +994,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
             <View style={styles.modalTopHeader}>
               <TouchableOpacity
                 style={styles.modalBackBtn}
-                onPress={() => handleStartSpicyGame(null)}
+                onPress={handleCloseSpicyGame}
                 activeOpacity={0.8}
               >
                 <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
@@ -941,16 +1060,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
                         styles.nhieSmallVoteBtn,
                         nhieUserVote === 'have' && styles.nhieVoteActive,
                       ]}
-                      onPress={() => {
-                        setNhieUserVote('have');
-                        try {
-                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                        } catch {}
-                        RealtimeService.broadcastGameMove(
-                          'spicy_nhie_vote',
-                          { vote: 'have', userName },
-                        );
-                      }}
+                      onPress={() => handleVoteNhie('have')}
                     >
                       <Text style={styles.nhieVoteText}>I HAVE 🍷</Text>
                     </TouchableOpacity>
@@ -960,16 +1070,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
                         styles.nhieSmallVoteBtn,
                         nhieUserVote === 'never' && styles.nhieVoteActive,
                       ]}
-                      onPress={() => {
-                        setNhieUserVote('never');
-                        try {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        } catch {}
-                        RealtimeService.broadcastGameMove(
-                          'spicy_nhie_vote',
-                          { vote: 'never', userName },
-                        );
-                      }}
+                      onPress={() => handleVoteNhie('never')}
                     >
                       <Text style={styles.nhieVoteText}>NEVER 😇</Text>
                     </TouchableOpacity>
@@ -1106,20 +1207,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
               <View style={styles.spicyFooterRow}>
                 <TouchableOpacity
                   style={[styles.bigSpinBtn, { flex: 1, marginRight: 8 }]}
-                  onPress={() => {
-                    try {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    } catch {}
-                    const nextIdx = nhieIndex + 1;
-                    setNhieIndex(nextIdx);
-                    setNhieUserVote(null);
-                    setNhiePartnerVote(null);
-                    setShowAnswerInput(false);
-                    RealtimeService.broadcastGameMove(
-                      'spicy_nhie_next',
-                      { nextIndex: nextIdx },
-                    );
-                  }}
+                  onPress={handleNextNhiePrompt}
                   activeOpacity={0.85}
                 >
                   <Text style={styles.bigSpinBtnText}>NEXT CONFESSION ➔</Text>
@@ -1148,7 +1236,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
             <View style={styles.modalTopHeader}>
               <TouchableOpacity
                 style={styles.modalBackBtn}
-                onPress={() => handleStartSpicyGame(null)}
+                onPress={handleCloseSpicyGame}
                 activeOpacity={0.8}
               >
                 <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
@@ -1179,13 +1267,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
                       { backgroundColor: '#3A004C' },
                       triviaUserChoice === 0 && { borderColor: '#FF2A6D', borderWidth: 2 },
                     ]}
-                    onPress={() => {
-                      setTriviaUserChoice(0);
-                      setRevealedTrivia(true);
-                      try {
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                      } catch {}
-                    }}
+                    onPress={() => handleChooseTrivia(0)}
                   >
                     <Text style={styles.triviaBtnText}>WRONG ❌</Text>
                   </TouchableOpacity>
@@ -1196,13 +1278,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
                       { backgroundColor: '#FF1E56' },
                       triviaUserChoice === 1 && { borderColor: '#FFFFFF', borderWidth: 2 },
                     ]}
-                    onPress={() => {
-                      setTriviaUserChoice(1);
-                      setRevealedTrivia(true);
-                      try {
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                      } catch {}
-                    }}
+                    onPress={() => handleChooseTrivia(1)}
                   >
                     <Text style={styles.triviaBtnText}>CORRECT ✅</Text>
                   </TouchableOpacity>
@@ -1221,11 +1297,7 @@ export const SpicyGamesLounge: React.FC<SpicyGamesLoungeProps> = ({
 
               <TouchableOpacity
                 style={[styles.bigSpinBtn, { marginTop: 24 }]}
-                onPress={() => {
-                  setTriviaIndex((prev) => (prev + 1) % HOT_TRIVIA_QUESTIONS.length);
-                  setTriviaUserChoice(null);
-                  setRevealedTrivia(false);
-                }}
+                onPress={handleNextTriviaQuestion}
               >
                 <Text style={styles.bigSpinBtnText}>NEXT INTIMACY QUESTION ➔</Text>
               </TouchableOpacity>

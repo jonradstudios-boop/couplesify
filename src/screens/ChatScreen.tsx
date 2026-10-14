@@ -14,7 +14,7 @@ import {
   Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AppColors from '../theme/AppColors';
 import AppFonts from '../theme/AppFonts';
@@ -111,11 +111,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
 
     // Listen to real-time incoming broadcast messages
     const unsubMsg = RealtimeService.on('message', (msg: ChatMessage) => {
-      if (msg?.id === 'clear_chat' || msg?.text === '__CLEAR_ALL_CHAT__') {
-        setMessages([]);
-        StorageService.saveMessages([]);
-        return;
-      }
       setMessages((prev) => [...prev, msg]);
       scrollViewRef.current?.scrollToEnd({ animated: true });
     });
@@ -133,10 +128,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
       scrollViewRef.current?.scrollToEnd({ animated: true });
     });
 
+    const unsubClear = RealtimeService.on('clear_chat' as any, () => {
+      setMessages([]);
+      StorageService.saveMessages([]);
+    });
+
     return () => {
       unsubFirestoreChat();
       unsubMsg();
       unsubNudge();
+      unsubClear();
     };
   }, []);
 
@@ -206,7 +207,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
     }
   };
 
-  const handleConfirmClearChat = () => {
+  const handleClearChat = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
@@ -217,30 +218,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
       if (profile?.inviteCode) {
         await FirestoreService.clearChatMessages(profile.inviteCode);
       }
-      await RealtimeService.broadcastMessage({
-        id: 'clear_chat',
-        text: '__CLEAR_ALL_CHAT__',
-        sender: 'partner' as const,
-        type: 'text' as const,
-        status: 'sent' as const,
-        timestamp: Date.now(),
-      });
+      RealtimeService.emit('clear_chat' as any, null);
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {}
     };
 
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm('Clear all chat messages for you and your partner? 💕')) {
-        doClear();
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Clear all chat messages for both of you? 💕')) {
+        await doClear();
       }
     } else {
       Alert.alert(
         'Clear Chat History',
-        'Are you sure you want to clear all chat messages for you and your partner? 💕',
+        'Are you sure you want to clear all chat messages for both of you? 💕',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Clear All', style: 'destructive', onPress: doClear },
+          { text: 'Clear', style: 'destructive', onPress: doClear },
         ]
       );
     }
@@ -299,18 +293,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={styles.headerIconBtn}
-              onPress={handleConfirmClearChat}
+              onPress={onOpenDoodle}
               activeOpacity={0.7}
+              accessibilityLabel="Open Doodle"
             >
-              <Ionicons name="trash-outline" size={17} color="#FF4D67" />
+              <Ionicons name="brush" size={17} color={AppColors.primary} />
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.headerIconBtn}
-              onPress={onOpenDoodle}
+              style={styles.clearChatBtn}
+              onPress={handleClearChat}
               activeOpacity={0.7}
+              accessibilityLabel="Clear Chat"
             >
-              <Ionicons name="brush" size={18} color={AppColors.primary} />
+              <Ionicons name="trash-outline" size={16} color="#FF3B69" />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -318,7 +314,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onOpenPairing, onOpenDoo
               onPress={onOpenPairing}
               activeOpacity={0.7}
             >
-              <Ionicons name="key" size={13} color={AppColors.primary} />
+              <Ionicons name="key" size={12} color={AppColors.primary} />
               <Text style={styles.pairingCodeText}>{profile?.inviteCode || 'LOVE-77'}</Text>
             </TouchableOpacity>
           </View>
@@ -562,6 +558,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF2F4',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  clearChatBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFF0F3',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FFD6DE',
   },
   pairingCodeChip: {
     flexDirection: 'row',
