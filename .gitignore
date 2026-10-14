@@ -49,6 +49,7 @@ credentials.json
 
 # temp media
 *.mp4
+!30680-382152802.mp4
 *.webm
 scratch_*/
 test.*
