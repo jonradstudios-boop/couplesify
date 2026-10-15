@@ -57,14 +57,12 @@ export const MoodSelector: React.FC<MoodSelectorProps> = ({
         {/* User's Mood */}
         <View style={styles.duoMoodSide}>
           <View style={styles.duoMoodAvatarCircle}>
-            <Text style={{ fontSize: 14 }}>💖</Text>
+            <Text style={{ fontSize: 16 }}>💖</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.duoMoodOwnerLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-              YOUR MOOD (YOU)
-            </Text>
+            <Text style={styles.duoMoodOwnerLabel}>YOUR MOOD (YOU)</Text>
             <View style={styles.duoMoodRow}>
-              <AnimatedGifEmoji emoji={currentMood} size={18} style={{ marginRight: 4 }} />
+              <AnimatedGifEmoji emoji={currentMood} size={20} style={{ marginRight: 5 }} />
               <Text style={styles.duoMoodText} numberOfLines={1}>
                 {currentMood || 'Loving 🥰'}
               </Text>
@@ -74,7 +72,7 @@ export const MoodSelector: React.FC<MoodSelectorProps> = ({
 
         {/* Sync Heart Divider */}
         <View style={styles.duoMoodDivider}>
-          <Ionicons name="heart" size={14} color={AppColors.primary} />
+          <Ionicons name="heart" size={16} color={AppColors.primary} />
           <Text style={styles.duoMoodDividerText}>SYNCED</Text>
         </View>
 
@@ -89,16 +87,16 @@ export const MoodSelector: React.FC<MoodSelectorProps> = ({
           activeOpacity={0.8}
         >
           <View style={[styles.duoMoodAvatarCircle, { backgroundColor: '#F3E8FF' }]}>
-            <Text style={{ fontSize: 14 }}>🌸</Text>
+            <Text style={{ fontSize: 16 }}>🌸</Text>
           </View>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={styles.duoMoodOwnerLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
-                {partnerName ? `${partnerName.toUpperCase()}'S MOOD` : "PARTNER'S MOOD"}
+              <Text style={styles.duoMoodOwnerLabel} numberOfLines={1}>
+                {partnerName.toUpperCase()}'S MOOD
               </Text>
             </View>
             <View style={styles.duoMoodRow}>
-              <AnimatedGifEmoji emoji={effectivePartnerMood} size={18} style={{ marginRight: 4 }} />
+              <AnimatedGifEmoji emoji={effectivePartnerMood} size={20} style={{ marginRight: 5 }} />
               <Text style={styles.duoMoodText} numberOfLines={1}>
                 {effectivePartnerMood}
               </Text>
@@ -133,7 +131,7 @@ export const MoodSelector: React.FC<MoodSelectorProps> = ({
             >
               <AnimatedGifEmoji
                 emoji={item.emoji}
-                size={30}
+                size={38}
                 isSelected={isSelected}
                 style={styles.moodEmojiContainer}
               />
@@ -142,7 +140,6 @@ export const MoodSelector: React.FC<MoodSelectorProps> = ({
                   styles.moodLabel,
                   isSelected && styles.selectedMoodLabel,
                 ]}
-                numberOfLines={1}
               >
                 {item.label}
               </Text>
@@ -156,48 +153,47 @@ export const MoodSelector: React.FC<MoodSelectorProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 6,
+    marginVertical: 8,
   },
   duoMoodCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.72)',
-    borderRadius: 18,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     marginHorizontal: 16,
-    marginBottom: 10,
+    marginBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.95)',
     shadowColor: '#E297A5',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
-    shadowRadius: 10,
+    shadowRadius: 12,
     elevation: 3,
   },
   duoMoodSide: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 0,
   },
   duoMoodAvatarCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#FFE8EC',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 6,
+    marginRight: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.9)',
   },
   duoMoodOwnerLabel: {
-    fontSize: 8.5,
+    fontSize: 9.5,
     fontWeight: '800',
     color: AppColors.textSecondary,
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
   },
   duoMoodRow: {
     flexDirection: 'row',
@@ -205,21 +201,21 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   duoMoodText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '800',
     color: AppColors.textPrimary,
   },
   duoMoodDivider: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 10,
   },
   duoMoodDividerText: {
-    fontSize: 7.5,
+    fontSize: 8.5,
     fontWeight: '900',
     color: AppColors.primary,
-    letterSpacing: 0.4,
-    marginTop: 1,
+    letterSpacing: 0.5,
+    marginTop: 2,
   },
   partnerMoodCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.58)',
@@ -281,54 +277,54 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectorHeader: {
-    paddingHorizontal: 16,
-    marginBottom: 6,
+    paddingHorizontal: 20,
+    marginBottom: 10,
   },
   selectorTitle: {
     fontFamily: AppFonts.title,
-    fontSize: 16,
+    fontSize: 18,
     color: AppColors.textPrimary,
   },
   selectorSubtitle: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '400',
     color: AppColors.textSecondary,
-    marginTop: 1,
+    marginTop: 2,
   },
   scrollContent: {
-    paddingHorizontal: 14,
-    paddingBottom: 4,
-    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+    gap: 10,
   },
   moodBadge: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    minWidth: 68,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    minWidth: 78,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.92)',
     shadowColor: '#F5B0C0',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 2,
   },
   selectedBadge: {
     borderColor: AppColors.primary,
     borderWidth: 2,
-    transform: [{ scale: 1.04 }],
+    transform: [{ scale: 1.05 }],
     shadowColor: AppColors.primary,
     shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 10,
+    elevation: 5,
   },
   moodEmojiContainer: {
-    marginBottom: 4,
+    marginBottom: 6,
   },
   moodLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: AppColors.textPrimary,
   },

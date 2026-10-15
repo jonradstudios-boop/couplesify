@@ -281,18 +281,14 @@ export const MemoryScreen: React.FC = () => {
       <SafeAreaView style={styles.safeArea}>
         {/* Top Header with Dual-toggle pill: "Memories" | "Letters" */}
         <View style={styles.headerRow}>
-          <Text style={styles.screenTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-            Memory Scrapbook
-          </Text>
+          <Text style={styles.screenTitle}>Memory Scrapbook</Text>
           <View style={styles.dualTogglePill}>
             <TouchableOpacity
               style={[styles.toggleSegment, activeTab === 'memories' && styles.toggleSegmentActive]}
               onPress={() => setActiveTab('memories')}
-              activeOpacity={0.8}
             >
               <Text
                 style={[styles.toggleText, activeTab === 'memories' && styles.toggleTextActive]}
-                numberOfLines={1}
               >
                 Memories
               </Text>
@@ -300,11 +296,9 @@ export const MemoryScreen: React.FC = () => {
             <TouchableOpacity
               style={[styles.toggleSegment, activeTab === 'messages' && styles.toggleSegmentActive]}
               onPress={() => setActiveTab('messages')}
-              activeOpacity={0.8}
             >
               <Text
                 style={[styles.toggleText, activeTab === 'messages' && styles.toggleTextActive]}
-                numberOfLines={1}
               >
                 Letters
               </Text>
@@ -482,7 +476,7 @@ export const MemoryScreen: React.FC = () => {
             </View>
           )}
 
-          <View style={{ height: 110 }} />
+          <View style={{ height: 140 }} />
         </ScrollView>
 
         {/* Modal: Upload New Memory */}
@@ -490,14 +484,9 @@ export const MemoryScreen: React.FC = () => {
           <View style={styles.modalOverlay}>
             <View style={styles.uploadModalCard}>
               <View style={styles.modalTopRow}>
-                <Text style={styles.uploadModalTitle} numberOfLines={1} adjustsFontSizeToFit>Add New Memory</Text>
-                <TouchableOpacity
-                  onPress={() => setIsUploadModalOpen(false)}
-                  style={styles.modalCloseBtn}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="close" size={20} color={AppColors.textSecondary} />
+                <Text style={styles.uploadModalTitle}>Add New Memory</Text>
+                <TouchableOpacity onPress={() => setIsUploadModalOpen(false)}>
+                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -579,14 +568,9 @@ export const MemoryScreen: React.FC = () => {
           <View style={styles.modalOverlay}>
             <View style={styles.uploadModalCard}>
               <View style={styles.modalTopRow}>
-                <Text style={styles.uploadModalTitle} numberOfLines={1} adjustsFontSizeToFit>Write Love Letter 💌</Text>
-                <TouchableOpacity
-                  onPress={() => setIsLetterModalOpen(false)}
-                  style={styles.modalCloseBtn}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="close" size={20} color={AppColors.textSecondary} />
+                <Text style={styles.uploadModalTitle}>Write Love Letter 💌</Text>
+                <TouchableOpacity onPress={() => setIsLetterModalOpen(false)}>
+                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -636,34 +620,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
   screenTitle: {
     fontFamily: AppFonts.title,
-    fontSize: 20,
+    fontSize: 26,
     color: AppColors.textPrimary,
-    flex: 1,
-    marginRight: 8,
   },
   dualTogglePill: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 2,
+    borderRadius: 18,
+    padding: 3,
     borderWidth: 1,
     borderColor: '#FFE8EC',
   },
   toggleSegment: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 14,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 15,
   },
   toggleSegmentActive: {
     backgroundColor: AppColors.primary,
   },
   toggleText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: AppColors.textSecondary,
   },
@@ -671,54 +653,54 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   scrollContent: {
-    paddingBottom: 110,
+    paddingBottom: 24,
   },
   galleryHeroCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.58)',
-    borderRadius: 20,
-    padding: 14,
+    borderRadius: 24,
+    padding: 18,
     marginHorizontal: 16,
-    marginVertical: 8,
+    marginVertical: 10,
     shadowColor: '#E297A5',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
-    shadowRadius: 14,
+    shadowRadius: 16,
     elevation: 3,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.95)',
   },
   heroTextCol: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   heroTitle: {
     fontFamily: AppFonts.title,
-    fontSize: 18,
+    fontSize: 22,
     color: AppColors.textPrimary,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   heroSubtitle: {
-    fontSize: 11.5,
+    fontSize: 12.5,
     color: AppColors.textSecondary,
-    lineHeight: 16,
+    lineHeight: 17,
   },
   uploadBtn: {
     backgroundColor: AppColors.primary,
     borderRadius: 9999,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     shadowColor: AppColors.primary,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   uploadBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
   },
   emptyContainer: {
@@ -918,13 +900,12 @@ const styles = StyleSheet.create({
   },
   uploadModalCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.94)',
-    borderRadius: 22,
-    padding: 16,
-    maxHeight: '88%',
+    borderRadius: 28,
+    padding: 22,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.16,
-    shadowRadius: 18,
+    shadowRadius: 20,
     elevation: 8,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.95)',
@@ -933,22 +914,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   uploadModalTitle: {
     fontFamily: AppFonts.title,
-    fontSize: 18,
+    fontSize: 22,
     color: AppColors.textPrimary,
-    flex: 1,
-    marginRight: 8,
-  },
-  modalCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   inputLabel: {
     fontSize: 12,

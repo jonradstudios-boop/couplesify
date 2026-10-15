@@ -33,8 +33,8 @@ export const CoupleAvatarRing: React.FC<CoupleAvatarRingProps> = ({
   };
 
   const daysTogether = calculateDays();
-  const ringSize = 196;
-  const strokeWidth = 7;
+  const ringSize = 220;
+  const strokeWidth = 8;
   const radius = (ringSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   // Progress towards 1000 days or 365 days milestone
@@ -95,7 +95,7 @@ export const CoupleAvatarRing: React.FC<CoupleAvatarRingProps> = ({
 
             {/* Pulsing Interlocking Heart Badge */}
             <View style={styles.heartCenterBadge}>
-              <Ionicons name="heart" size={15} color="#FF6575" />
+              <Ionicons name="heart" size={18} color="#FF6575" />
             </View>
 
             {/* Partner Avatar */}
@@ -112,13 +112,8 @@ export const CoupleAvatarRing: React.FC<CoupleAvatarRingProps> = ({
             </View>
           </View>
 
-          {/* Names - auto adjusts font size so both names fit cleanly */}
-          <Text
-            style={styles.namesLabel}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.7}
-          >
+          {/* Names */}
+          <Text style={styles.namesLabel} numberOfLines={1}>
             {userName || 'You'} & {partnerName || 'Partner'}
           </Text>
         </View>
@@ -126,7 +121,7 @@ export const CoupleAvatarRing: React.FC<CoupleAvatarRingProps> = ({
 
       {/* Live Calculated Badge: "[X] Days Together" */}
       <View style={styles.daysBadge}>
-        <Ionicons name="sparkles" size={13} color="#FF6575" style={{ marginRight: 5 }} />
+        <Ionicons name="sparkles" size={14} color="#FF6575" style={{ marginRight: 6 }} />
         <Text style={styles.daysText}>
           <Text style={styles.daysHighlight}>{daysTogether}</Text> {daysTogether === 1 ? 'Day Together' : 'Days Together'}
         </Text>
@@ -139,7 +134,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 10,
+    marginVertical: 12,
   },
   ringContainer: {
     alignItems: 'center',
@@ -152,32 +147,31 @@ const styles = StyleSheet.create({
     left: 0,
   },
   innerContent: {
-    width: 170,
-    height: 170,
-    borderRadius: 85,
+    width: 190,
+    height: 190,
+    borderRadius: 95,
     backgroundColor: 'rgba(255, 255, 255, 0.65)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#F3CAD5',
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18,
-    shadowRadius: 14,
+    shadowRadius: 16,
     elevation: 4,
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.95)',
-    paddingHorizontal: 8,
   },
   avatarsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   avatarWrapper: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    borderWidth: 2.5,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 3,
     borderColor: 'rgba(255, 255, 255, 0.95)',
     overflow: 'hidden',
     shadowColor: '#E297A5',
@@ -187,11 +181,11 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   userAvatar: {
-    marginRight: -8,
+    marginRight: -10,
     zIndex: 1,
   },
   partnerAvatar: {
-    marginLeft: -8,
+    marginLeft: -10,
     zIndex: 2,
   },
   avatarImage: {
@@ -207,13 +201,13 @@ const styles = StyleSheet.create({
   },
   avatarInitials: {
     fontFamily: AppFonts.title,
-    fontSize: 24,
+    fontSize: 28,
   },
   heartCenterBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'absolute',
@@ -221,45 +215,43 @@ const styles = StyleSheet.create({
     shadowColor: '#FF6575',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
-    shadowRadius: 5,
+    shadowRadius: 6,
     elevation: 5,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.95)',
   },
   namesLabel: {
     fontFamily: AppFonts.title,
-    fontSize: 13.5,
+    fontSize: 17,
     color: AppColors.textPrimary,
-    letterSpacing: 0.3,
-    maxWidth: 150,
-    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   daysBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.72)',
-    paddingVertical: 7,
-    paddingHorizontal: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.68)',
+    paddingVertical: 9,
+    paddingHorizontal: 22,
     borderRadius: 9999,
-    marginTop: -14,
+    marginTop: -16,
     zIndex: 20,
     shadowColor: '#E297A5',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.16,
-    shadowRadius: 12,
+    shadowRadius: 14,
     elevation: 4,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.95)',
   },
   daysText: {
-    fontSize: 13.5,
+    fontSize: 15,
     fontWeight: '700',
     color: AppColors.textPrimary,
   },
   daysHighlight: {
     fontFamily: AppFonts.title,
     color: AppColors.primary,
-    fontSize: 18,
+    fontSize: 20,
   },
 });
 
