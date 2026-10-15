@@ -140,8 +140,10 @@ export const PairingModal: React.FC<PairingModalProps> = ({
         <FallingHeartsBackground />
         <View style={styles.modalCard}>
           <View style={styles.headerRow}>
-            <Text style={styles.title}>Couplesify Pairing & Settings</Text>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+            <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+              Couplesify Pairing & Settings
+            </Text>
+            <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} activeOpacity={0.7}>
               <Ionicons name="close" size={20} color={AppColors.textSecondary} />
             </TouchableOpacity>
           </View>
@@ -310,8 +312,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: AppFonts.title,
-    fontSize: 21,
+    fontSize: 18,
     color: AppColors.textPrimary,
+    flex: 1,
+    marginRight: 8,
   },
   closeBtn: {
     width: 32,

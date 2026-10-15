@@ -57,11 +57,16 @@ export const CustomBottomBar: React.FC<CustomBottomBarProps> = ({
           <View style={[styles.iconWrapper, activeTab === 'home' && styles.activeIconWrapper]}>
             <MaterialCommunityIcons
               name={activeTab === 'home' ? 'tree' : 'tree-outline'}
-              size={24}
+              size={22}
               color={activeTab === 'home' ? AppColors.primary : AppColors.textSecondary}
             />
           </View>
-          <Text style={[styles.tabLabel, activeTab === 'home' && styles.activeTabLabel]}>
+          <Text
+            style={[styles.tabLabel, activeTab === 'home' && styles.activeTabLabel]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
             Today
           </Text>
         </TouchableOpacity>
@@ -75,11 +80,16 @@ export const CustomBottomBar: React.FC<CustomBottomBarProps> = ({
           <View style={[styles.iconWrapper, activeTab === 'games' && styles.activeIconWrapper]}>
             <Feather
               name="compass"
-              size={23}
+              size={21}
               color={activeTab === 'games' ? AppColors.primary : AppColors.textSecondary}
             />
           </View>
-          <Text style={[styles.tabLabel, activeTab === 'games' && styles.activeTabLabel]}>
+          <Text
+            style={[styles.tabLabel, activeTab === 'games' && styles.activeTabLabel]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
             Play
           </Text>
         </TouchableOpacity>
@@ -91,7 +101,7 @@ export const CustomBottomBar: React.FC<CustomBottomBarProps> = ({
             onPress={handleCenter}
             activeOpacity={0.85}
           >
-            <Ionicons name="heart" size={28} color="#FFFFFF" />
+            <Ionicons name="heart" size={25} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
@@ -104,11 +114,16 @@ export const CustomBottomBar: React.FC<CustomBottomBarProps> = ({
           <View style={[styles.iconWrapper, activeTab === 'memories' && styles.activeIconWrapper]}>
             <Ionicons
               name={activeTab === 'memories' ? 'images' : 'images-outline'}
-              size={23}
+              size={21}
               color={activeTab === 'memories' ? AppColors.primary : AppColors.textSecondary}
             />
           </View>
-          <Text style={[styles.tabLabel, activeTab === 'memories' && styles.activeTabLabel]}>
+          <Text
+            style={[styles.tabLabel, activeTab === 'memories' && styles.activeTabLabel]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+          >
             Memories
           </Text>
         </TouchableOpacity>
@@ -122,7 +137,7 @@ export const CustomBottomBar: React.FC<CustomBottomBarProps> = ({
           <View style={[styles.iconWrapper, activeTab === 'chat' && styles.activeIconWrapper]}>
             <Ionicons
               name={activeTab === 'chat' ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
-              size={23}
+              size={21}
               color={activeTab === 'chat' ? AppColors.primary : AppColors.textSecondary}
             />
             {unreadCount > 0 && (
@@ -131,7 +146,12 @@ export const CustomBottomBar: React.FC<CustomBottomBarProps> = ({
               </View>
             )}
           </View>
-          <Text style={[styles.tabLabel, activeTab === 'chat' && styles.activeTabLabel]}>
+          <Text
+            style={[styles.tabLabel, activeTab === 'chat' && styles.activeTabLabel]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
             Chat
           </Text>
         </TouchableOpacity>
@@ -143,9 +163,9 @@ export const CustomBottomBar: React.FC<CustomBottomBarProps> = ({
 const styles = StyleSheet.create({
   floatingContainer: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 24 : 16,
-    left: 18,
-    right: 18,
+    bottom: Platform.OS === 'ios' ? 20 : 12,
+    left: 14,
+    right: 14,
     alignItems: 'center',
     zIndex: 999,
   },
@@ -153,30 +173,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: 'rgba(255, 255, 255, 0.68)',
-    borderRadius: 36,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.76)',
+    borderRadius: 28,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
     width: '100%',
     shadowColor: '#E297A5',
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.16,
-    shadowRadius: 20,
+    shadowRadius: 16,
     elevation: 6,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.92)',
+    borderColor: 'rgba(255, 255, 255, 0.95)',
   },
   tabButton: {
     flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconWrapper: {
-    width: 38,
-    height: 34,
+    width: 34,
+    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 18,
+    borderRadius: 15,
   },
   activeIconWrapper: {
     backgroundColor: 'rgba(255, 101, 117, 0.14)',
@@ -185,32 +206,33 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontFamily: AppFonts.title,
-    fontSize: 12,
+    fontSize: 10,
     color: AppColors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
+    textAlign: 'center',
   },
   activeTabLabel: {
     color: AppColors.primary,
   },
   centerButtonContainer: {
-    top: -18,
+    top: -12,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
   },
   centerButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: AppColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: AppColors.primary,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.45,
-    shadowRadius: 12,
-    elevation: 10,
-    borderWidth: 3,
+    shadowRadius: 10,
+    elevation: 8,
+    borderWidth: 2.5,
     borderColor: '#FFFFFF',
   },
   badge: {
@@ -218,18 +240,18 @@ const styles = StyleSheet.create({
     top: -2,
     right: -2,
     backgroundColor: AppColors.primary,
-    borderRadius: 9,
-    minWidth: 16,
-    height: 16,
+    borderRadius: 8,
+    minWidth: 15,
+    height: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 3,
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
   },
   badgeText: {
     color: '#FFFFFF',
-    fontSize: 9,
+    fontSize: 8.5,
     fontWeight: '800',
   },
 });

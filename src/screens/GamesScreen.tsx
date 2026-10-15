@@ -1258,9 +1258,14 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
           <View style={styles.modalOverlay}>
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
-                <Text style={styles.gameModalTitle}>Daily Couple Quiz 💌</Text>
-                <TouchableOpacity onPress={handleCloseGameModal}>
-                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                <Text style={styles.gameModalTitle} numberOfLines={1} adjustsFontSizeToFit>Daily Couple Quiz 💌</Text>
+                <TouchableOpacity
+                  onPress={handleCloseGameModal}
+                  style={styles.modalCloseBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={20} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -1321,9 +1326,14 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
           <View style={styles.modalOverlay}>
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
-                <Text style={styles.gameModalTitle}>Live Tic-Tac-Toe</Text>
-                <TouchableOpacity onPress={handleCloseGameModal}>
-                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                <Text style={styles.gameModalTitle} numberOfLines={1} adjustsFontSizeToFit>Live Tic-Tac-Toe</Text>
+                <TouchableOpacity
+                  onPress={handleCloseGameModal}
+                  style={styles.modalCloseBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={20} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -1396,9 +1406,14 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
           <View style={styles.modalOverlay}>
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
-                <Text style={styles.gameModalTitle}>Spicy Romantic Wheel 🎡</Text>
-                <TouchableOpacity onPress={handleCloseGameModal}>
-                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                <Text style={styles.gameModalTitle} numberOfLines={1} adjustsFontSizeToFit>Romantic Wheel 🎡</Text>
+                <TouchableOpacity
+                  onPress={handleCloseGameModal}
+                  style={styles.modalCloseBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={20} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -1461,16 +1476,23 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
           <View style={styles.modalOverlay}>
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={styles.gameModalTitle}>Truth or Dare Deck 🃏</Text>
+                <View style={styles.modalTitleContainer}>
+                  <Text style={styles.gameModalTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                    Truth or Dare Deck 🃏
+                  </Text>
                   <View style={styles.deckCountBadge}>
                     <Text style={styles.deckCountBadgeText}>
                       {TOD_DATA[todType].length} Cards
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={handleCloseGameModal}>
-                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                <TouchableOpacity
+                  onPress={handleCloseGameModal}
+                  style={styles.modalCloseBtn}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={20} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -1659,9 +1681,14 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
           <View style={styles.modalOverlay}>
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
-                <Text style={styles.gameModalTitle}>Fantasy Romance Dice 🎲</Text>
-                <TouchableOpacity onPress={handleCloseGameModal}>
-                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                <Text style={styles.gameModalTitle} numberOfLines={1} adjustsFontSizeToFit>Fantasy Romance Dice 🎲</Text>
+                <TouchableOpacity
+                  onPress={handleCloseGameModal}
+                  style={styles.modalCloseBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={20} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -1700,9 +1727,14 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
           <View style={styles.modalOverlay}>
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
-                <Text style={styles.gameModalTitle}>Never Have I Ever 🙈</Text>
-                <TouchableOpacity onPress={handleCloseGameModal}>
-                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                <Text style={styles.gameModalTitle} numberOfLines={1} adjustsFontSizeToFit>Never Have I Ever 🙈</Text>
+                <TouchableOpacity
+                  onPress={handleCloseGameModal}
+                  style={styles.modalCloseBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={20} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -1762,9 +1794,14 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
           <View style={styles.modalOverlay}>
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
-                <Text style={styles.gameModalTitle}>Sensory Touch Challenge 💋</Text>
-                <TouchableOpacity onPress={handleCloseGameModal}>
-                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                <Text style={styles.gameModalTitle} numberOfLines={1} adjustsFontSizeToFit>Sensory Touch Challenge 💋</Text>
+                <TouchableOpacity
+                  onPress={handleCloseGameModal}
+                  style={styles.modalCloseBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={20} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -1792,9 +1829,14 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
           <View style={styles.modalOverlay}>
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
-                <Text style={styles.gameModalTitle}>New Couple Goal</Text>
-                <TouchableOpacity onPress={() => setIsNewGoalModal(false)}>
-                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                <Text style={styles.gameModalTitle} numberOfLines={1} adjustsFontSizeToFit>New Couple Goal 🎯</Text>
+                <TouchableOpacity
+                  onPress={() => setIsNewGoalModal(false)}
+                  style={styles.modalCloseBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={20} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -1834,12 +1876,17 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
           <View style={styles.modalOverlay}>
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
-                <View>
-                  <Text style={styles.gameModalTitle}>Duo Game Room 🎮</Text>
-                  <Text style={styles.modalSubtitle}>Session Match Room & In-Game Invites</Text>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={styles.gameModalTitle} numberOfLines={1} adjustsFontSizeToFit>Duo Game Room 🎮</Text>
+                  <Text style={styles.modalSubtitle} numberOfLines={1}>Session Match Room & In-Game Invites</Text>
                 </View>
-                <TouchableOpacity onPress={() => setIsInviteModalOpen(false)}>
-                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                <TouchableOpacity
+                  onPress={() => setIsInviteModalOpen(false)}
+                  style={styles.modalCloseBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={20} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -2059,12 +2106,17 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
           <View style={styles.modalOverlay}>
             <View style={styles.gameModalCard}>
               <View style={styles.modalTopRow}>
-                <View>
-                  <Text style={styles.gameModalTitle}>Create Custom Prompt ✍️</Text>
-                  <Text style={styles.modalSubtitle}>Add your own question or dare for {partnerName}</Text>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={styles.gameModalTitle} numberOfLines={1} adjustsFontSizeToFit>Create Custom Prompt ✍️</Text>
+                  <Text style={styles.modalSubtitle} numberOfLines={1}>Add your own question or dare for {partnerName}</Text>
                 </View>
-                <TouchableOpacity onPress={() => setIsCustomModalOpen(false)}>
-                  <Ionicons name="close" size={22} color={AppColors.textSecondary} />
+                <TouchableOpacity
+                  onPress={() => setIsCustomModalOpen(false)}
+                  style={styles.modalCloseBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={20} color={AppColors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -2427,13 +2479,13 @@ const styles = StyleSheet.create({
   },
   gameModalCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.96)',
-    borderRadius: 24,
-    padding: 16,
-    maxHeight: '92%',
+    borderRadius: 20,
+    padding: 14,
+    maxHeight: '88%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.16,
-    shadowRadius: 20,
+    shadowRadius: 18,
     elevation: 8,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.95)',
@@ -2442,12 +2494,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  modalTitleContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+    flexShrink: 1,
   },
   gameModalTitle: {
     fontFamily: AppFonts.title,
-    fontSize: 22,
+    fontSize: 18,
     color: AppColors.textPrimary,
+    flexShrink: 1,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   quizQuestionNumber: {
     fontSize: 12,
@@ -2781,15 +2849,15 @@ const styles = StyleSheet.create({
   },
   flipCard: {
     width: '100%',
-    minHeight: 140,
+    minHeight: 120,
     backgroundColor: 'rgba(255, 247, 248, 0.65)',
-    borderRadius: 20,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    padding: 12,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.92)',
-    marginVertical: 8,
+    marginVertical: 6,
   },
   flipCardFlipped: {
     backgroundColor: 'rgba(255, 232, 236, 0.85)',
@@ -2799,24 +2867,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardDeckEmoji: {
-    fontSize: 38,
+    fontSize: 32,
     marginBottom: 4,
   },
   tapToRevealText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
     color: AppColors.textSecondary,
+    textAlign: 'center',
   },
   cardBack: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 6,
   },
   cardBackPrompt: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: '700',
     color: AppColors.textPrimary,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 20,
   },
   diceIntroText: {
     fontSize: 13,
@@ -3153,13 +3223,13 @@ const styles = StyleSheet.create({
   // TOD DUO STYLES
   deckCountBadge: {
     backgroundColor: '#FFE8EC',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    marginLeft: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 10,
+    marginLeft: 6,
   },
   deckCountBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: AppColors.primary,
   },
@@ -3168,10 +3238,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 245, 247, 0.85)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 14,
-    marginBottom: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 8,
   },
   duoTurnLeft: {
     flexDirection: 'row',
