@@ -158,6 +158,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* Top Header */}
         <View style={styles.headerRow}>
           <View style={styles.logoGroup}>
+            <Image
+              source={require('../../assets/couplesify-logo.png')}
+              style={styles.headerLogoIcon}
+              resizeMode="contain"
+            />
             <Text style={styles.appTitle}>Couplesify</Text>
             <View style={styles.heartSparkle}>
               <Ionicons name="heart" size={14} color={AppColors.primary} />
@@ -345,6 +350,12 @@ const styles = StyleSheet.create({
   logoGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  headerLogoIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    marginRight: 8,
   },
   appTitle: {
     fontFamily: AppFonts.title,

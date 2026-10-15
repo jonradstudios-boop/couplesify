@@ -280,7 +280,7 @@ class RealtimeServiceManager {
   public async broadcastSnap(snap: EphemeralSnap | null) {
     if (snap) {
       let safeSnap = snap;
-      if (snap.imageUri && snap.imageUri.length > 250000) {
+      if (snap.imageUri) {
         const compressedUri = await ImageCompressService.ensureSafeCloudSize(snap.imageUri);
         safeSnap = { ...snap, imageUri: compressedUri };
       }

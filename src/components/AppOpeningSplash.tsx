@@ -6,6 +6,7 @@ import {
   Animated,
   Easing,
   Dimensions,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -184,7 +185,7 @@ export const AppOpeningSplash: React.FC<AppOpeningSplashProps> = ({
           ]}
         />
 
-        {/* Center Glowing Heart Logo Icon */}
+        {/* Center Glowing Logo */}
         <Animated.View
           style={[
             styles.logoCircle,
@@ -194,12 +195,11 @@ export const AppOpeningSplash: React.FC<AppOpeningSplashProps> = ({
             },
           ]}
         >
-          <LinearGradient
-            colors={['#FF6575', '#FF416C', '#FF2A6D']}
-            style={styles.logoGradient}
-          >
-            <Ionicons name="heart" size={54} color="#FFFFFF" />
-          </LinearGradient>
+          <Image
+            source={require('../../assets/couplesify-logo.png')}
+            style={styles.logoSplashImage}
+            resizeMode="contain"
+          />
         </Animated.View>
 
         {/* Brand Title & Tagline */}
@@ -251,22 +251,25 @@ const styles = StyleSheet.create({
     borderColor: '#FF6575',
   },
   logoCircle: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    shadowColor: '#FF6575',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.38,
-    shadowRadius: 20,
-    elevation: 12,
-  },
-  logoGradient: {
-    flex: 1,
-    borderRadius: 55,
+    width: 124,
+    height: 124,
+    borderRadius: 32,
+    backgroundColor: '#070509',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    shadowColor: '#FF6575',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    elevation: 14,
     borderWidth: 2.5,
-    borderColor: '#FFFFFF',
+    borderColor: 'rgba(255, 101, 117, 0.45)',
+  },
+  logoSplashImage: {
+    width: 118,
+    height: 118,
+    borderRadius: 28,
   },
   textContainer: {
     alignItems: 'center',

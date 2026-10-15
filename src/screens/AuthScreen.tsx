@@ -22,6 +22,7 @@ import AppFonts from '../theme/AppFonts';
 import FallingHeartsBackground from '../components/FallingHeartsBackground';
 import AuthService, { UserAccount } from '../services/AuthService';
 import FirestoreService from '../services/FirestoreService';
+import ImageCompressService from '../services/ImageCompressService';
 
 interface AuthScreenProps {
   onAuthSuccess: (user: UserAccount) => void;
@@ -73,10 +74,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onSkip })
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.6,
       });
       if (!res.canceled && res.assets && res.assets.length > 0) {
-        setAvatarUri(res.assets[0].uri);
+        const compressed = await ImageCompressService.processPickerAsset(res.assets[0]);
+        setAvatarUri(compressed);
       }
     } catch {}
   };
@@ -213,8 +215,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onSkip })
         >
           {/* Header Branding */}
           <View style={styles.brandHeader}>
-            <View style={styles.logoBadgeCircle}>
-              <Ionicons name="heart" size={28} color="#FF6575" />
+            <View style={styles.logoFrame}>
+              <Image
+                source={require('../../assets/couplesify-logo.png')}
+                style={styles.brandLogoImg}
+                resizeMode="contain"
+              />
             </View>
             <Text style={styles.brandTitle}>COUPLESIFY</Text>
             <Text style={styles.brandSubtitle}>
@@ -649,21 +655,27 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingTop: 4,
   },
-  logoBadgeCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FFE8EC',
+  logoFrame: {
+    width: 96,
+    height: 96,
+    borderRadius: 24,
+    backgroundColor: '#070509',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+    marginBottom: 10,
+    overflow: 'hidden',
     shadowColor: '#FF6575',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 101, 117, 0.4)',
+  },
+  brandLogoImg: {
+    width: 92,
+    height: 92,
+    borderRadius: 22,
   },
   brandTitle: {
     fontFamily: AppFonts.title,

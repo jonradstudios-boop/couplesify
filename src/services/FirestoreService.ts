@@ -455,14 +455,25 @@ export const FirestoreService = {
   },
 
   /**
-   * Sync Memories to Cloud
+   * Sync Memories to Cloud (guarantees safe size under Firestore 1MB limit)
    */
   async syncMemories(inviteCode: string, memories: MemoryItem[]): Promise<void> {
     if (!isInitialized || !db || !inviteCode) return;
     try {
       const code = inviteCode.trim().toUpperCase();
       const ref = doc(db, 'couples', code, 'memories', 'collection');
-      await setDoc(ref, { memories, updatedAt: Date.now() }, { merge: true });
+
+      const safeMemories = await Promise.all(
+        memories.map(async (m) => {
+          if (m.imageUri) {
+            const safeUri = await ImageCompressService.ensureSafeCloudSize(m.imageUri);
+            return { ...m, imageUri: safeUri };
+          }
+          return m;
+        })
+      );
+
+      await setDoc(ref, { memories: safeMemories, updatedAt: Date.now() }, { merge: true });
     } catch (err) {
       console.warn('Firestore syncMemories error:', err);
     }

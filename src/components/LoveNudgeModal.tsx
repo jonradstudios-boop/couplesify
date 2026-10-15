@@ -55,6 +55,7 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
   const [snap, setSnap] = useState<EphemeralSnap | null>(null);
   const [snapRemainingTime, setSnapRemainingTime] = useState<string | null>(null);
   const [stagedSnapUri, setStagedSnapUri] = useState<string | null>(null);
+  const [stagedSnapKb, setStagedSnapKb] = useState<number>(32);
   const [stagedCaption, setStagedCaption] = useState<string>('');
   const [isReplySnap, setIsReplySnap] = useState<boolean>(false);
   const [isSavingToMemories, setIsSavingToMemories] = useState<boolean>(true);
@@ -184,12 +185,14 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
     return () => clearInterval(interval);
   }, [visible, snap]);
 
-  // 1. Ephemeral Snap Actions (7 hours reset + Staging Save Area)
+  // 1. Ephemeral Snap Actions (7 hours reset + Staging Save Area + Auto-Compress)
   const processAndStageAsset = async (asset: ImagePicker.ImagePickerAsset, isReply: boolean) => {
     setIsProcessingSnap(true);
     try {
       const compressedUri = await ImageCompressService.processPickerAsset(asset);
+      const approxKb = ImageCompressService.getApproximateKb(compressedUri);
       setStagedSnapUri(compressedUri);
+      setStagedSnapKb(approxKb);
       setIsReplySnap(isReply);
       setStagedCaption(isReply ? (snap?.author ? `Reply to ${snap.author} 💕` : 'Reply snap 💕') : '');
       setIsSnapSavedToMemories(false);
@@ -214,7 +217,7 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.7,
+        quality: 0.6,
       });
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
@@ -238,7 +241,7 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.7,
+        quality: 0.6,
       });
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
@@ -786,6 +789,12 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                         {isReplySnap ? `Reply to ${snap?.author || partnerName}` : 'Ready to Save & Sync'}
                       </Text>
                     </View>
+                    <View style={styles.compressionPill}>
+                      <Ionicons name="flash" size={10} color="#059669" />
+                      <Text style={styles.compressionPillText}>
+                        Auto-compressed: {stagedSnapKb} KB ⚡
+                      </Text>
+                    </View>
                     <View style={styles.stagedChangeBtnsRow}>
                       <TouchableOpacity
                         style={styles.stagedChangeBtn}
@@ -999,6 +1008,12 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
                       <Feather name="camera" size={14} color={AppColors.primary} style={{ marginRight: 5 }} />
                       <Text style={styles.cameraSnapBtnText}>Take Selfie</Text>
                     </TouchableOpacity>
+                  </View>
+                  <View style={styles.autoCompressBadgeRow}>
+                    <Ionicons name="flash" size={11} color="#059669" style={{ marginRight: 4 }} />
+                    <Text style={styles.autoCompressBadgeText}>
+                      Smart compression enabled: 4MB-10MB photos auto-optimize for fast sync
+                    </Text>
                   </View>
                 </View>
               )}
@@ -2180,6 +2195,42 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
+  },
+  compressionPill: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(236, 253, 245, 0.94)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(167, 243, 208, 0.9)',
+  },
+  compressionPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  autoCompressBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(236, 253, 245, 0.85)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(167, 243, 208, 0.7)',
+  },
+  autoCompressBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#047857',
   },
 });
 
