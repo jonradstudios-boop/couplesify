@@ -708,13 +708,22 @@ export const LoveNudgeModal: React.FC<LoveNudgeModalProps> = ({
               <View style={styles.heartIconCircle}>
                 <Ionicons name="heart" size={20} color="#FF6575" />
               </View>
-              <View>
-                <Text style={styles.title}>Our Heart Hub</Text>
-                <Text style={styles.subtitle}>Private space for you & {partnerName}</Text>
+              <View style={{ flex: 1, flexShrink: 1 }}>
+                <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                  Our Heart Hub
+                </Text>
+                <Text style={styles.subtitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                  Private space for you & {partnerName}
+                </Text>
               </View>
             </View>
 
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={onClose}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Ionicons name="close" size={20} color={AppColors.textSecondary} />
             </TouchableOpacity>
           </View>
@@ -1354,6 +1363,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
+    flexShrink: 1,
+    marginRight: 8,
   },
   heartIconCircle: {
     width: 38,

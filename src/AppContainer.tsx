@@ -62,8 +62,21 @@ export const AppContainer: React.FC = () => {
           currentUser?.uid,
           (liveData) => {
             if (liveData.profile) {
-              setProfile(liveData.profile);
-              StorageService.saveProfile(liveData.profile);
+              setProfile((prev) => {
+                const updated = { ...liveData.profile! };
+                if (
+                  updated.partnerName &&
+                  updated.userName &&
+                  updated.partnerName.toLowerCase().trim() === updated.userName.toLowerCase().trim()
+                ) {
+                  updated.partnerName = prev?.partnerName || prof?.partnerName || 'Partner';
+                }
+                if (updated.partnerName === 'Partner' && prev?.partnerName && prev.partnerName !== 'Partner') {
+                  updated.partnerName = prev.partnerName;
+                }
+                StorageService.saveProfile(updated);
+                return updated;
+              });
             }
             if (liveData.snap !== undefined) {
               StorageService.saveEphemeralSnap(liveData.snap);

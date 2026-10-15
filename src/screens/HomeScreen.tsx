@@ -325,7 +325,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           )}
 
           {/* Bottom spacing for floating bar */}
-          <View style={{ height: 135 }} />
+          <View style={{ height: 110 }} />
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
@@ -344,22 +344,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   logoGroup: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerLogoIcon: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     borderRadius: 8,
     marginRight: 8,
   },
   appTitle: {
     fontFamily: AppFonts.title,
-    fontSize: 28,
+    fontSize: 24,
     color: AppColors.textPrimary,
     letterSpacing: 0.5,
   },
@@ -585,43 +585,43 @@ const styles = StyleSheet.create({
   },
   emptyMemoryCard: {
     marginHorizontal: 16,
-    marginVertical: 10,
+    marginVertical: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.52)',
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: 20,
+    padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.8,
     borderStyle: 'dashed',
     borderColor: 'rgba(255, 255, 255, 0.9)',
     shadowColor: '#E297A5',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
-    shadowRadius: 14,
+    shadowRadius: 12,
     elevation: 2,
   },
   emptyMemoryIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 232, 236, 0.65)',
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.95)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   emptyMemoryCardTitle: {
     fontFamily: AppFonts.title,
-    fontSize: 18,
+    fontSize: 16,
     color: AppColors.textPrimary,
   },
   emptyMemoryCardSubtitle: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: AppColors.textSecondary,
     textAlign: 'center',
-    marginTop: 4,
-    lineHeight: 16,
+    marginTop: 2,
+    lineHeight: 15,
   },
 });
 

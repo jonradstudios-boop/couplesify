@@ -33,8 +33,8 @@ export const CoupleAvatarRing: React.FC<CoupleAvatarRingProps> = ({
   };
 
   const daysTogether = calculateDays();
-  const ringSize = 220;
-  const strokeWidth = 8;
+  const ringSize = 196;
+  const strokeWidth = 7;
   const radius = (ringSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   // Progress towards 1000 days or 365 days milestone
@@ -113,7 +113,12 @@ export const CoupleAvatarRing: React.FC<CoupleAvatarRingProps> = ({
           </View>
 
           {/* Names */}
-          <Text style={styles.namesLabel} numberOfLines={1}>
+          <Text
+            style={styles.namesLabel}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+          >
             {userName || 'You'} & {partnerName || 'Partner'}
           </Text>
         </View>
@@ -147,9 +152,9 @@ const styles = StyleSheet.create({
     left: 0,
   },
   innerContent: {
-    width: 190,
-    height: 190,
-    borderRadius: 95,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
     backgroundColor: 'rgba(255, 255, 255, 0.65)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -165,13 +170,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   avatarWrapper: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 3,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    borderWidth: 2.5,
     borderColor: 'rgba(255, 255, 255, 0.95)',
     overflow: 'hidden',
     shadowColor: '#E297A5',
@@ -201,12 +206,12 @@ const styles = StyleSheet.create({
   },
   avatarInitials: {
     fontFamily: AppFonts.title,
-    fontSize: 28,
+    fontSize: 24,
   },
   heartCenterBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: 'rgba(255, 255, 255, 0.85)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -222,9 +227,11 @@ const styles = StyleSheet.create({
   },
   namesLabel: {
     fontFamily: AppFonts.title,
-    fontSize: 17,
+    fontSize: 13.5,
     color: AppColors.textPrimary,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
+    maxWidth: 150,
+    textAlign: 'center',
   },
   daysBadge: {
     flexDirection: 'row',
